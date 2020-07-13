@@ -1,0 +1,7 @@
+[package]
+name = "read-the-map"
+version = "0.0.0"
+authors = ["Andrew Kvalheim <Andrew@Kvalhe.im>"]
+edition = "2018"
+
+[dependencies]
