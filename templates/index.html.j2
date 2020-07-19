@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+
+    <title>Little a Map</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+      integrity="sha384-eS4bw6aEvhCSXWGP85ANR/N8isWKzT7P36NvcuTJGkrj6wsbxLVpXslrNXYHyseD"
+      crossorigin=""
+    />
+
+    <style type="text/css">
+      html,
+      body,
+      #map {
+        background-color: #000;
+        height: 100%;
+        margin: 0;
+        width: 100%;
+      }
+
+      .pixelated .leaflet-tile {
+        image-rendering: optimizeSpeed;
+        image-rendering: pixelated;
+      }
+
+      .leaflet-control-links {
+        background: #fff
+          url("https://unpkg.com/leaflet@1.6.0/dist/images/marker-icon.png")
+          no-repeat center center / auto 16px;
+        border-radius: 5px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+        box-sizing: border-box;
+        height: 32px;
+        width: 32px;
+      }
+      .leaflet-control-links:focus,
+      .leaflet-control-links:hover {
+        background-image: none;
+        height: auto;
+        max-height: calc(100vh - 20px);
+        max-width: calc(100vw - 20px);
+        overflow: auto;
+        width: auto;
+      }
+
+      .leaflet-control-links-content {
+        display: none;
+      }
+      .leaflet-control-links:focus .leaflet-control-links-content,
+      .leaflet-control-links:hover .leaflet-control-links-content {
+        display: initial;
+      }
+
+      .leaflet-control-links-item {
+        cursor: pointer;
+        padding: 6px 10px;
+      }
+
+      .leaflet-control-links-item:hover {
+        background-color: #ddd;
+      }
+    </style>
+
+    <script
+      src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+      integrity="sha384-wKOriz2x8/bF1D9t6PuKhSpxfhHeVi9huvyuxJrrShSJpi5+rmRIsM90UuWbdAYJ"
+      crossorigin=""
+    ></script>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <script>
+      const spawn = { x: {{ spawn_x }}, z: {{ spawn_z }} };
+
+      const LinksControl = L.Control.extend({
+        initialize(collection) {
+          this._collection = collection;
+        },
+
+        onAdd(map) {
+          const root = document.createElement("div");
+          root.classList.add("leaflet-control-links");
+          root.tabIndex = 0;
+          root.addEventListener("click", () => {
+            root.focus();
+          });
+
+          const content = document.createElement("div");
+          content.classList.add("leaflet-control-links-content");
+          root.appendChild(content);
+
+          this._collection.features.forEach(({ geometry, properties }) => {
+            if (!properties.unique) {
+              return;
+            }
+
+            const latlng = geometry.coordinates.reverse();
+
+            const item = document.createElement("div");
+            item.classList.add("leaflet-control-links-item");
+            item.innerText = properties.name;
+            item.addEventListener("click", (event) => {
+              event.stopPropagation();
+              root.blur();
+
+              map.panTo(latlng);
+            });
+
+            content.appendChild(item);
+          });
+
+          return root;
+        },
+      });
+
+      const crs = L.extend({}, L.CRS.Simple, {
+        transformation: new L.Transformation(1, 64, 1, 64),
+      });
+
+      const map = L.map("map", {
+        attributionControl: false,
+        bounceAtZoomLimits: false,
+        center: [spawn.z, spawn.x],
+        crs,
+        zoom: 2,
+        zoomControl: false,
+      });
+
+      L.tileLayer("./tiles/{z}/{x}/{y}.png", {
+        className: "pixelated",
+        maxNativeZoom: 0,
+        maxZoom: 3,
+        minNativeZoom: 0,
+        minZoom: 0,
+        tileSize: 128,
+        updateWhenIdle: false,
+        zoomOffset: 4,
+      }).addTo(map);
+
+      fetch("./banners.json")
+        .then((r) => r.json())
+        .then((collection) => {
+          L.geoJSON(collection, {
+            pointToLayer: (feature, latlng) => {
+              const marker = L.marker(latlng);
+
+              if (feature.properties.name) {
+                marker.bindTooltip(feature.properties.name, {
+                  permanent: true,
+                });
+              }
+
+              return marker;
+            },
+          }).addTo(map);
+
+          new LinksControl(collection).addTo(map);
+        });
+    </script>
+  </body>
+</html>
