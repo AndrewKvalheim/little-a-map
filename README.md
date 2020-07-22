@@ -1,3 +1,5 @@
+[![Demo][demo-badge]][demo]
+
 # Little a Map
 
 Players can have little a map—if they've surveyed the area in-game. This tool
@@ -23,5 +25,7 @@ Rendered 341 map items onto 1862 tiles in 0.34s.
 
 _Little a Map_ is inspired by _[Papyri]_ by [Jason Green].
 
+[demo]: https://andrewkvalheim.github.io/little-a-map/
+[demo-badge]: https://img.shields.io/badge/dynamic/json?color=green&label=demo&query=%24.version&url=https%3A%2F%2Fandrewkvalheim.github.io%2Flittle-a-map%2Fbadge.json
 [jason green]: https://jason.green.io/
 [papyri]: https://github.com/jason-green-io/papyri
