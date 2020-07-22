@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta name="generator" content="little-a-map 0.7.0" />
+
+    <title>Little a Map</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+      integrity="sha384-eS4bw6aEvhCSXWGP85ANR/N8isWKzT7P36NvcuTJGkrj6wsbxLVpXslrNXYHyseD"
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+    />
+
+    <style type="text/css">
+      /* Document */
+      html,
+      body,
+      #map {
+        background-color: #000;
+        height: 100%;
+        margin: 0;
+        width: 100%;
+      }
+
+      /* Pixelated layers */
+      .pixelated .leaflet-tile {
+        image-rendering: optimizeSpeed;
+        image-rendering: pixelated;
+      }
+
+      /* Banner markers */
+      .leaflet-marker-icon-banner {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        position: relative; /* .banner-label */
+      }
+      .leaflet-marker-icon-banner > svg {
+        height: 100%;
+        width: 100%;
+      }
+      .banner-label {
+        background-color: #0009;
+        color: #fff;
+        font-family: 'VT323', monospace;
+        font-size: 15px;
+        line-height: 1;
+        padding: 0.125ch 0.5ch 0.25ch;
+        position: absolute;
+        top: calc(100% + 4px);
+        white-space: nowrap;
+      }
+      .banner-black { color: #1f2024; }
+      .banner-blue { color: #42439d; }
+      .banner-brown { color: #735235; }
+      .banner-cyan { color: #298796; }
+      .banner-gray { color: #4b4e52; }
+      .banner-green { color: #5e6f3a; }
+      .banner-light_blue { color: #3998cf; }
+      .banner-light_gray { color: #8e8e85; }
+      .banner-lime { color: #70b32c; }
+      .banner-magenta { color: #b447ac; }
+      .banner-orange { color: #e5731e; }
+      .banner-pink { color: #db779d; }
+      .banner-purple { color: #7734a9; }
+      .banner-red { color: #9c3434; }
+      .banner-white { color: #ffffff; }
+      .banner-yellow { color: #f2b929; }
+
+      /* Links control */
+      .leaflet-control-links {
+        background: #fff;
+        border-radius: 5px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+        box-sizing: border-box;
+      }
+      .leaflet-control-links:focus,
+      .leaflet-control-links:hover {
+        height: auto;
+        max-height: calc(100vh - 20px);
+        max-width: calc(100vw - 20px);
+        overflow: auto;
+        width: auto;
+      }
+      .leaflet-control-links-content {
+        display: none;
+      }
+      .leaflet-control-links:focus .leaflet-control-links-content,
+      .leaflet-control-links:hover .leaflet-control-links-content {
+        display: initial;
+      }
+      .leaflet-control-links-icon {
+        align-items: center;
+        color: #444;
+        display: flex;
+        font-size: 24px;
+        height: 28px;
+        justify-content: center;
+        width: 28px;
+      }
+      .leaflet-control-links:focus .leaflet-control-links-icon,
+      .leaflet-control-links:hover .leaflet-control-links-icon {
+        display: none;
+      }
+      .leaflet-control-links-item {
+        cursor: pointer;
+        padding: 6px 10px 6px 8px;
+      }
+      .leaflet-control-links-item:hover {
+        background-color: #ddd;
+      }
+      .leaflet-control-links-item-icon > svg {
+        display: inline-block;
+        height: calc(1em * (10 / 8));
+        margin-bottom: calc(1em * (-2 / 8));
+        margin-right: 6px;
+        width: auto;
+      }
+    </style>
+
+    <script
+      src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+      integrity="sha384-wKOriz2x8/bF1D9t6PuKhSpxfhHeVi9huvyuxJrrShSJpi5+rmRIsM90UuWbdAYJ"
+      crossorigin=""
+    ></script>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <script>
+      (function () {
+        const isDebug = window.location.hash === "#debug";
+
+        const map = L.map("map", {
+          attributionControl: false,
+          bounceAtZoomLimits: false,
+          boxZoom: false,
+          center: [20148, -20730],
+          crs: L.extend({}, L.CRS.Simple, {
+            transformation: new L.Transformation(1, 64, 1, 64),
+          }),
+          zoom: 2,
+          zoomControl: false,
+        });
+
+        L.tileLayer("./tiles/{z}/{x}/{y}.png", {
+          className: "pixelated",
+          maxNativeZoom: 0,
+          maxZoom: 3,
+          minNativeZoom: 0,
+          minZoom: isDebug ? -1 : 0,
+          tileSize: 128,
+          updateWhenIdle: false,
+          zoomOffset: 4,
+        }).addTo(map);
+
+        fetch("./banners.json")
+          .then((r) => r.json())
+          .then((collection) => {
+            L.geoJSON(collection, {
+              pointToLayer: ({ properties: { color, name } }, coordinates) =>
+                L.marker(coordinates, { icon: bannerIcon(color, name) }),
+            }).addTo(map);
+
+            new LinksControl(collection).addTo(map);
+          });
+
+        const bannerSvg = `<svg viewBox="0 0 6 8" xmlns="http://www.w3.org/2000/svg"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>`;
+        const bannerIcon = (color, name) =>
+          L.divIcon({
+            className: `leaflet-marker-icon-banner banner-${color}`,
+            html: `${bannerSvg}${name ? `<div class="banner-label">${name}</div>` : ""}`,
+            iconAnchor: [9, 24],
+            iconSize: [18, 24],
+          });
+
+        const LinksControl = L.Control.extend({
+          initialize(collection) {
+            this._collection = collection;
+          },
+
+          onAdd(map) {
+            // Control
+            const root = document.createElement("div");
+            root.classList.add("leaflet-control-links");
+            root.tabIndex = 0;
+            root.addEventListener("click", () => root.focus());
+
+            // Icon
+            const icon = document.createElement("div");
+            icon.classList.add("leaflet-control-links-icon");
+            icon.innerText = "≡";
+            root.appendChild(icon);
+
+            // Content
+            const content = document.createElement("div");
+            content.classList.add("leaflet-control-links-content");
+            root.appendChild(content);
+
+            // Items
+            const handleClick = (coordinates) => (event) => {
+              event.stopPropagation();
+              root.blur();
+
+              map.panTo(coordinates);
+            };
+            this._collection.features
+              .filter(({ properties: { unique } }) => unique)
+              .forEach(({ geometry: { coordinates }, properties: { color, name } }) => {
+                const item = document.createElement("div");
+                item.classList.add("leaflet-control-links-item");
+                item.addEventListener("click", handleClick(coordinates.reverse()));
+
+                const icon = document.createElement("span");
+                icon.classList.add("leaflet-control-links-item-icon");
+                icon.classList.add(`banner-${color}`);
+                icon.innerHTML = bannerSvg;
+                item.appendChild(icon);
+
+                const label = document.createElement("span");
+                label.innerText = name;
+                item.appendChild(label);
+
+                content.appendChild(item);
+              });
+
+            return root;
+          },
+        });
+
+        if (isDebug) {
+          // Utilities
+          const tileSize = { x: 128, y: 128 };
+          const tileCoordinate = (latlng) =>
+            map.project(latlng, 0).floor().unscaleBy(tileSize).floor();
+          const tileBounds = (latlng) => {
+            const nw = map.unproject(tileCoordinate(latlng).scaleBy(tileSize), 0);
+            return [nw, { lat: nw.lat + tileSize.y, lng: nw.lng + tileSize.x }];
+          };
+
+          // State
+          const rectangle = L.rectangle(
+            [
+              [0, 0],
+              [0, 0],
+            ],
+            {
+              color: "#fff",
+              fill: false,
+              opacity: 2 / 3,
+              weight: 1,
+            }
+          ).addTo(map);
+
+          // Hover to highlight
+          map.on(
+            "mousemove",
+            L.Util.throttle(({ latlng }) => {
+              const bounds = tileBounds(latlng);
+
+              if (!rectangle.getBounds().equals(bounds)) {
+                rectangle.setBounds(bounds);
+              }
+            }, 50)
+          );
+
+          // Click to inspect
+          map.on("click", ({ latlng }) => {
+            const tile = tileCoordinate(latlng);
+
+            fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
+              .then((r) => r.json())
+              .then((meta) => {
+                const x = Math.floor(latlng.lng);
+                const y = Math.floor(latlng.lat);
+                const ids = meta.maps.map((id) => `#${id}`);
+                const html = `<p>x = ${x}, z = ${y}</p><p>${ids.join(", ")}</p>`;
+
+                map.openPopup(html, [y, x]);
+              })
+              .catch(console.error);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
