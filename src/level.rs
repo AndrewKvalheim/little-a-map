@@ -160,7 +160,7 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> MapData {
 
 pub fn scan<M, B>(level_path: &PathBuf, mut on_map: M, mut on_banner: B)
 where
-    B: FnMut(Banner),
+    B: FnMut(FileTime, Banner),
     M: FnMut(Map),
 {
     glob(level_path.join("data/map_*.dat").to_str().unwrap())
@@ -304,7 +304,7 @@ where
                                                     let x = x.unwrap();
                                                     let z = z.unwrap();
 
-                                                    on_banner(Banner { label, x, z });
+                                                    on_banner(modified, Banner { label, x, z });
                                                 }
 
                                                 // End

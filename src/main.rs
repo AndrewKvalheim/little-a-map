@@ -5,7 +5,7 @@ mod tile;
 
 use askama::Template;
 use banner::Banner;
-use filetime::FileTime;
+use filetime::{self, FileTime};
 use level::MapData;
 use map::Map;
 use rayon::prelude::*;
@@ -30,6 +30,7 @@ struct Args {
 }
 
 struct Stats {
+    banners: usize,
     tiles: usize,
     start: Instant,
 }
@@ -47,11 +48,13 @@ fn main(args: Args) {
     let output_path = args.output_path;
 
     let mut stats = Stats {
+        banners: 0,
         tiles: 0,
         start: Instant::now(),
     };
 
     let mut banners: BTreeSet<Banner> = BTreeSet::new();
+    let mut banners_modified: Option<FileTime> = None;
     let mut root_tiles: HashSet<Tile> = HashSet::new();
     let mut maps_by_tile: HashMap<Tile, OrderedMaps> = HashMap::new();
 
@@ -65,8 +68,12 @@ fn main(args: Args) {
                 .or_insert_with(BTreeSet::new)
                 .insert(map);
         },
-        |banner| {
+        |modified, banner| {
             banners.insert(banner);
+
+            if banners_modified.map_or(true, |m| m < modified) {
+                banners_modified.replace(modified);
+            }
         },
     );
 
@@ -136,37 +143,48 @@ fn main(args: Args) {
         })
         .sum::<usize>();
 
-    let label_counts = {
-        let mut counts: HashMap<&str, usize> = HashMap::new();
+    if let Some(modified) = banners_modified {
+        let banners_path = output_path.join("banners.json");
 
-        banners
-            .iter()
-            .filter_map(|b| b.label.as_ref())
-            .for_each(|label| {
-                *counts.entry(label).or_insert(0) += 1;
-            });
+        if fs::metadata(&banners_path)
+            .map(|m| FileTime::from_last_modification_time(&m))
+            .map_or(true, |json_modified| json_modified < modified)
+        {
+            stats.banners += banners.len();
 
-        counts
-    };
+            let label_counts = {
+                let mut counts: HashMap<&str, usize> = HashMap::new();
+                banners
+                    .iter()
+                    .filter_map(|b| b.label.as_ref())
+                    .for_each(|label| {
+                        *counts.entry(label).or_insert(0) += 1;
+                    });
+                counts
+            };
 
-    serde_json::to_writer(
-        &File::create(output_path.join("banners.json")).unwrap(),
-        &json!({
-            "type": "FeatureCollection",
-            "features": banners.iter().map(|banner| json!({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [banner.x, banner.z]
-                },
-                "properties": {
-                    "name": banner.label,
-                    "unique": banner.label.as_ref().map_or(false, |l| *label_counts.get(l.as_str()).unwrap() == 1),
-                }
-            })).collect::<Vec<_>>()
-        }),
-    )
-    .unwrap();
+            serde_json::to_writer(
+                    &File::create(&banners_path).unwrap(),
+                    &json!({
+                        "type": "FeatureCollection",
+                        "features": banners.iter().map(|banner| json!({
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [banner.x, banner.z]
+                            },
+                            "properties": {
+                                "name": banner.label,
+                                "unique": banner.label.as_ref().map_or(false, |l| *label_counts.get(l.as_str()).unwrap() == 1),
+                            }
+                        })).collect::<Vec<_>>()
+                    }),
+                )
+                .unwrap();
+
+            filetime::set_file_mtime(banners_path, modified).unwrap();
+        }
+    }
 
     let (spawn_x, spawn_z) = level::get_spawn(&level_path);
     let index_template = IndexTemplate { spawn_x, spawn_z };
@@ -175,12 +193,13 @@ fn main(args: Args) {
         .write_all(index_template.render().unwrap().as_bytes())
         .unwrap();
 
-    if stats.tiles == 0 {
+    if stats.banners == 0 && stats.tiles == 0 {
         println!("Nothing to do");
     } else {
         println!(
-            "Rendered {} tiles in {:.2}s",
+            "Rendered {} tiles and {} banners in {:.2}s",
             stats.tiles,
+            stats.banners,
             stats.start.elapsed().as_secs_f32()
         );
     }
