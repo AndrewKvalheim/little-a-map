@@ -22,10 +22,10 @@ type OrderedMaps = BTreeSet<Map>;
 
 #[derive(StructOpt)]
 struct Args {
-    #[structopt(parse(from_os_str))]
+    #[structopt(name = "level dir", parse(from_os_str))]
     level_path: PathBuf,
 
-    #[structopt(long = "output", default_value = "dist", parse(from_os_str))]
+    #[structopt(name = "output dir", parse(from_os_str))]
     output_path: PathBuf,
 }
 
