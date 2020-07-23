@@ -294,7 +294,7 @@ checksum = "bd7d4bd64732af4bf3a67f367c27df8520ad7e230c5817b8ff485864d80242b9"
 
 [[package]]
 name = "little-a-map"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "askama",
  "derivative",
