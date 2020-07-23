@@ -5,12 +5,13 @@ mod tile;
 
 use askama::Template;
 use banner::Banner;
+use filetime::FileTime;
 use level::MapData;
 use map::Map;
 use rayon::prelude::*;
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -29,7 +30,6 @@ struct Args {
 }
 
 struct Stats {
-    maps: usize,
     tiles: usize,
     start: Instant,
 }
@@ -47,7 +47,6 @@ fn main(args: Args) {
     let output_path = args.output_path;
 
     let mut stats = Stats {
-        maps: 0,
         tiles: 0,
         start: Instant::now(),
     };
@@ -61,7 +60,6 @@ fn main(args: Args) {
         |map| {
             root_tiles.insert(map.tile.root());
 
-            stats.maps += 1;
             maps_by_tile
                 .entry(map.tile.clone())
                 .or_insert_with(BTreeSet::new)
@@ -87,10 +85,23 @@ fn main(args: Args) {
         }));
 
         if tile.zoom == 4 {
-            if layers.iter().any(Option::is_some) {
-                *tile_count += 1;
+            if let Some(map_modified) = layers
+                .iter()
+                .flatten()
+                .flatten()
+                .map(|&(m, _)| m.modified)
+                .max()
+            {
+                let path =
+                    output_path.join(format!("tiles/{}/{}/{}.png", tile.zoom, tile.x, tile.y));
 
-                tile.render(output_path, layers.iter().flatten().flatten());
+                if fs::metadata(&path)
+                    .map(|m| FileTime::from_last_modification_time(&m))
+                    .map_or(true, |png_modified| png_modified < map_modified)
+                {
+                    *tile_count += 1;
+                    tile.render(&path, layers.iter().flatten().flatten(), map_modified);
+                }
             }
         } else {
             tile.quadrants().iter().for_each(|t| {
@@ -164,10 +175,13 @@ fn main(args: Args) {
         .write_all(index_template.render().unwrap().as_bytes())
         .unwrap();
 
-    println!(
-        "Rendered {} map items onto {} tiles in {:.2}s.",
-        stats.maps,
-        stats.tiles,
-        stats.start.elapsed().as_secs_f32()
-    );
+    if stats.tiles == 0 {
+        println!("Nothing to do");
+    } else {
+        println!(
+            "Rendered {} tiles in {:.2}s",
+            stats.tiles,
+            stats.start.elapsed().as_secs_f32()
+        );
+    }
 }

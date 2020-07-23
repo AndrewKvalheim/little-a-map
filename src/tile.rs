@@ -1,5 +1,6 @@
 use crate::level::{self, MapData};
 use crate::map::Map;
+use filetime::FileTime;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Add;
@@ -24,23 +25,6 @@ fn draw_behind(tile: &Tile, canvas: &mut Canvas, map: &Map, data: &MapData) {
             *pixel = map_pixel;
         }
     }
-}
-
-fn png(path: &PathBuf, pixels: &Canvas) {
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-
-    let mut encoder = png::Encoder::new(BufWriter::new(File::create(path).unwrap()), 128, 128);
-
-    encoder.set_color(png::ColorType::Indexed);
-    encoder.set_depth(png::BitDepth::Eight);
-    encoder.set_palette(level::PALETTE.clone());
-    encoder.set_trns(level::TRNS.to_vec());
-
-    encoder
-        .write_header()
-        .unwrap()
-        .write_image_data(pixels)
-        .unwrap();
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -91,19 +75,30 @@ impl Tile {
 
     pub fn render<'a>(
         &self,
-        output_path: &PathBuf,
-        maps: impl Iterator<Item = &'a (&'a Map, MapData)>,
+        path: &PathBuf,
+        maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
+        modified: FileTime,
     ) {
         let mut canvas = [0; 128 * 128];
 
-        maps.for_each(|&(map, data)| {
+        maps.into_iter().for_each(|&(map, data)| {
             draw_behind(self, &mut canvas, map, &data);
         });
 
-        png(
-            &output_path.join(format!("tiles/{}/{}/{}.png", self.zoom, self.x, self.y)),
-            &canvas,
-        )
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        let mut encoder = png::Encoder::new(BufWriter::new(File::create(path).unwrap()), 128, 128);
+        encoder.set_color(png::ColorType::Indexed);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_palette(level::PALETTE.clone());
+        encoder.set_trns(level::TRNS.to_vec());
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&canvas)
+            .unwrap();
+
+        filetime::set_file_mtime(path, modified).unwrap();
     }
 
     pub fn root(&self) -> Self {
