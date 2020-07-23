@@ -174,6 +174,7 @@ fn main(args: Args) {
                                 "coordinates": [banner.x, banner.z]
                             },
                             "properties": {
+                                "color": banner.color,
                                 "name": banner.label,
                                 "unique": banner.label.as_ref().map_or(false, |l| *label_counts.get(l.as_str()).unwrap() == 1),
                             }

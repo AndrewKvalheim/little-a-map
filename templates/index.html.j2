@@ -1,10 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, user-scalable=no"
-    />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 
     <title>Little a Map</title>
 
@@ -13,6 +11,10 @@
       href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
       integrity="sha384-eS4bw6aEvhCSXWGP85ANR/N8isWKzT7P36NvcuTJGkrj6wsbxLVpXslrNXYHyseD"
       crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
     />
 
     <style type="text/css">
@@ -32,20 +34,55 @@
         image-rendering: pixelated;
       }
 
+      /* Banner markers */
+      .leaflet-marker-icon-banner {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        position: relative; /* .banner-label */
+      }
+      .leaflet-marker-icon-banner > svg {
+        height: 100%;
+        width: 100%;
+      }
+      .banner-label {
+        background-color: #0009;
+        color: #fff;
+        font-family: 'VT323', monospace;
+        font-size: 15px;
+        line-height: 1;
+        padding: 0.125ch 0.5ch 0.25ch;
+        position: absolute;
+        top: calc(100% + 4px);
+        white-space: nowrap;
+      }
+      .banner-black { color: #1f2024; }
+      .banner-blue { color: #42439d; }
+      .banner-brown { color: #735235; }
+      .banner-cyan { color: #298796; }
+      .banner-gray { color: #4b4e52; }
+      .banner-green { color: #5e6f3a; }
+      .banner-light_blue { color: #3998cf; }
+      .banner-light_gray { color: #8e8e85; }
+      .banner-lime { color: #70b32c; }
+      .banner-magenta { color: #b447ac; }
+      .banner-orange { color: #e5731e; }
+      .banner-pink { color: #db779d; }
+      .banner-purple { color: #7734a9; }
+      .banner-red { color: #9c3434; }
+      .banner-white { color: #ffffff; }
+      .banner-yellow { color: #f2b929; }
+
       /* Links control */
       .leaflet-control-links {
-        background: #fff
-          url("https://unpkg.com/leaflet@1.6.0/dist/images/marker-icon.png")
-          no-repeat center center / auto 16px;
+        background: #fff;
         border-radius: 5px;
         box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
         box-sizing: border-box;
-        height: 32px;
-        width: 32px;
       }
       .leaflet-control-links:focus,
       .leaflet-control-links:hover {
-        background-image: none;
         height: auto;
         max-height: calc(100vh - 20px);
         max-width: calc(100vw - 20px);
@@ -59,12 +96,32 @@
       .leaflet-control-links:hover .leaflet-control-links-content {
         display: initial;
       }
+      .leaflet-control-links-icon {
+        align-items: center;
+        color: #444;
+        display: flex;
+        font-size: 24px;
+        height: 28px;
+        justify-content: center;
+        width: 28px;
+      }
+      .leaflet-control-links:focus .leaflet-control-links-icon,
+      .leaflet-control-links:hover .leaflet-control-links-icon {
+        display: none;
+      }
       .leaflet-control-links-item {
         cursor: pointer;
-        padding: 6px 10px;
+        padding: 6px 10px 6px 8px;
       }
       .leaflet-control-links-item:hover {
         background-color: #ddd;
+      }
+      .leaflet-control-links-item-icon > svg {
+        display: inline-block;
+        height: calc(1em * (10 / 8));
+        margin-bottom: calc(1em * (-2 / 8));
+        margin-right: 6px;
+        width: auto;
       }
     </style>
 
@@ -106,18 +163,20 @@
           .then((r) => r.json())
           .then((collection) => {
             L.geoJSON(collection, {
-              pointToLayer: ({ properties: { name } }, coordinates) => {
-                const marker = L.marker(coordinates);
-
-                if (name) {
-                  marker.bindTooltip(name, { permanent: true });
-                }
-
-                return marker;
-              },
+              pointToLayer: ({ properties: { color, name } }, coordinates) =>
+                L.marker(coordinates, { icon: bannerIcon(color, name) }),
             }).addTo(map);
 
             new LinksControl(collection).addTo(map);
+          });
+
+        const bannerSvg = `<svg viewBox="0 0 6 8" xmlns="http://www.w3.org/2000/svg"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>`;
+        const bannerIcon = (color, name) =>
+          L.divIcon({
+            className: `leaflet-marker-icon-banner banner-${color}`,
+            html: `${bannerSvg}${name ? `<div class="banner-label">${name}</div>` : ""}`,
+            iconAnchor: [9, 24],
+            iconSize: [18, 24],
           });
 
         const LinksControl = L.Control.extend({
@@ -131,6 +190,12 @@
             root.classList.add("leaflet-control-links");
             root.tabIndex = 0;
             root.addEventListener("click", () => root.focus());
+
+            // Icon
+            const icon = document.createElement("div");
+            icon.classList.add("leaflet-control-links-icon");
+            icon.innerText = "≡";
+            root.appendChild(icon);
 
             // Content
             const content = document.createElement("div");
@@ -146,11 +211,20 @@
             };
             this._collection.features
               .filter(({ properties: { unique } }) => unique)
-              .forEach(({ geometry: { coordinates }, properties: { name } }) => {
+              .forEach(({ geometry: { coordinates }, properties: { color, name } }) => {
                 const item = document.createElement("div");
                 item.classList.add("leaflet-control-links-item");
-                item.innerText = name;
                 item.addEventListener("click", handleClick(coordinates.reverse()));
+
+                const icon = document.createElement("span");
+                icon.classList.add("leaflet-control-links-item-icon");
+                icon.classList.add(`banner-${color}`);
+                icon.innerHTML = bannerSvg;
+                item.appendChild(icon);
+
+                const label = document.createElement("span");
+                label.innerText = name;
+                item.appendChild(label);
 
                 content.appendChild(item);
               });

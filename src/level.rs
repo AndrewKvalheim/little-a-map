@@ -233,6 +233,7 @@ where
                                                 Value::Compound(None) => {
                                                     let mut x: Option<i32> = None;
                                                     let mut z: Option<i32> = None;
+                                                    let mut color: Option<String> = None;
                                                     let mut label: Option<String> = None;
 
                                                     'banner: loop {
@@ -240,6 +241,12 @@ where
                                                             Err(error) => panic!(error),
                                                             Ok(value) => {
                                                                 match value {
+                                                                    Value::String(
+                                                                        Some(ref n),
+                                                                        v,
+                                                                    ) if n == "Color" => {
+                                                                        color = Some(v)
+                                                                    }
                                                                     Value::String(
                                                                         Some(ref n),
                                                                         v,
@@ -301,10 +308,14 @@ where
                                                         }
                                                     }
 
+                                                    let color = color.unwrap();
                                                     let x = x.unwrap();
                                                     let z = z.unwrap();
 
-                                                    on_banner(modified, Banner { label, x, z });
+                                                    on_banner(
+                                                        modified,
+                                                        Banner { color, label, x, z },
+                                                    );
                                                 }
 
                                                 // End
