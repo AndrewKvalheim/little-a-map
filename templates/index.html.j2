@@ -171,30 +171,6 @@
             new LinksControl(collection).addTo(map);
           });
 
-        map.on("click", ({ latlng, originalEvent: { shiftKey } }) => {
-          if (shiftKey) {
-            const tile = map
-              .project(latlng, 0)
-              .floor()
-              .unscaleBy({ x: 128, y: 128 })
-              .floor();
-
-            fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
-              .then((r) => r.json())
-              .then((meta) => {
-                const x = Math.floor(latlng.lng);
-                const z = Math.floor(latlng.lat);
-                const ids = meta.maps.map((id) => `#${id}`);
-
-                map.openPopup(
-                  `<p>x = ${x}, z = ${z}</p><p>${ids.join(", ")}</p>`,
-                  latlng
-                );
-              })
-              .catch(console.error);
-          }
-        });
-
         const bannerSvg = `<svg viewBox="0 0 6 8" xmlns="http://www.w3.org/2000/svg"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>`;
         const bannerIcon = (color, name) =>
           L.divIcon({
@@ -257,6 +233,60 @@
             return root;
           },
         });
+
+        if (window.location.hash === "#debug") {
+          // Utilities
+          const tileSize = { x: 128, y: 128 };
+          const tileCoordinate = (latlng) =>
+            map.project(latlng, 0).floor().unscaleBy(tileSize).floor();
+          const tileBounds = (latlng) => {
+            const nw = map.unproject(tileCoordinate(latlng).scaleBy(tileSize), 0);
+            return [nw, { lat: nw.lat + tileSize.y, lng: nw.lng + tileSize.x }];
+          };
+
+          // State
+          const rectangle = L.rectangle(
+            [
+              [0, 0],
+              [0, 0],
+            ],
+            {
+              color: "#fff",
+              fill: false,
+              opacity: 2 / 3,
+              weight: 1,
+            }
+          ).addTo(map);
+
+          // Hover to highlight
+          map.on(
+            "mousemove",
+            L.Util.throttle(({ latlng }) => {
+              const bounds = tileBounds(latlng);
+
+              if (!rectangle.getBounds().equals(bounds)) {
+                rectangle.setBounds(bounds);
+              }
+            }, 50)
+          );
+
+          // Click to inspect
+          map.on("click", ({ latlng }) => {
+            const tile = tileCoordinate(latlng);
+
+            fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
+              .then((r) => r.json())
+              .then((meta) => {
+                const x = Math.floor(latlng.lng);
+                const y = Math.floor(latlng.lat);
+                const ids = meta.maps.map((id) => `#${id}`);
+                const html = `<p>x = ${x}, z = ${y}</p><p>${ids.join(", ")}</p>`;
+
+                map.openPopup(html, [y, x]);
+              })
+              .catch(console.error);
+          });
+        }
       })();
     </script>
   </body>
