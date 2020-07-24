@@ -38,6 +38,7 @@ struct Stats {
 #[derive(Template)]
 #[template(path = "index.html.j2")]
 struct IndexTemplate {
+    generator: String,
     spawn_x: i32,
     spawn_z: i32,
 }
@@ -188,7 +189,11 @@ fn main(args: Args) {
     }
 
     let (spawn_x, spawn_z) = level::get_spawn(&level_path);
-    let index_template = IndexTemplate { spawn_x, spawn_z };
+    let index_template = IndexTemplate {
+        generator: format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+        spawn_x,
+        spawn_z,
+    };
     File::create(output_path.join("index.html"))
         .unwrap()
         .write_all(index_template.render().unwrap().as_bytes())
