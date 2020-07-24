@@ -1,6 +1,7 @@
 use crate::level::{self, MapData};
 use crate::map::Map;
 use filetime::FileTime;
+use serde_json::json;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Add;
@@ -75,19 +76,34 @@ impl Tile {
 
     pub fn render<'a>(
         &self,
-        path: &PathBuf,
+        output_path: &PathBuf,
         maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
-        modified: FileTime,
-    ) {
+        maps_modified: FileTime,
+    ) -> bool {
+        let png_path = output_path.join(format!("tiles/{}/{}/{}.png", self.zoom, self.x, self.y));
+
+        if fs::metadata(&png_path)
+            .map(|m| FileTime::from_last_modification_time(&m))
+            .map_or(false, |png_modified| png_modified >= maps_modified)
+        {
+            return false;
+        }
+
         let mut canvas = [0; 128 * 128];
 
-        maps.into_iter().for_each(|&(map, data)| {
-            draw_behind(self, &mut canvas, map, &data);
-        });
+        let ids = maps
+            .into_iter()
+            .map(|&(map, data)| {
+                draw_behind(self, &mut canvas, map, &data);
 
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
+                map.id
+            })
+            .collect::<Vec<_>>();
 
-        let mut encoder = png::Encoder::new(BufWriter::new(File::create(path).unwrap()), 128, 128);
+        // Image
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
+        let mut encoder =
+            png::Encoder::new(BufWriter::new(File::create(&png_path).unwrap()), 128, 128);
         encoder.set_color(png::ColorType::Indexed);
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_palette(level::PALETTE.clone());
@@ -97,8 +113,14 @@ impl Tile {
             .unwrap()
             .write_image_data(&canvas)
             .unwrap();
+        filetime::set_file_mtime(&png_path, maps_modified).unwrap();
 
-        filetime::set_file_mtime(path, modified).unwrap();
+        // Metadata
+        let meta_path = png_path.with_extension("meta.json");
+        serde_json::to_writer(&File::create(&meta_path).unwrap(), &json!({ "maps": ids })).unwrap();
+        filetime::set_file_mtime(&meta_path, maps_modified).unwrap();
+
+        true
     }
 
     pub fn root(&self) -> Self {

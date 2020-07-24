@@ -173,10 +173,25 @@
 
         map.on("click", ({ latlng, originalEvent: { shiftKey } }) => {
           if (shiftKey) {
-            const x = Math.floor(latlng.lng);
-            const z = Math.floor(latlng.lat);
+            const tile = map
+              .project(latlng, 0)
+              .floor()
+              .unscaleBy({ x: 128, y: 128 })
+              .floor();
 
-            map.openPopup(`x = ${x}, z = ${z}`, latlng);
+            fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
+              .then((r) => r.json())
+              .then((meta) => {
+                const x = Math.floor(latlng.lng);
+                const z = Math.floor(latlng.lat);
+                const ids = meta.maps.map((id) => `#${id}`);
+
+                map.openPopup(
+                  `<p>x = ${x}, z = ${z}</p><p>${ids.join(", ")}</p>`,
+                  latlng
+                );
+              })
+              .catch(console.error);
           }
         });
 

@@ -100,15 +100,12 @@ fn main(args: Args) {
                 .map(|&(m, _)| m.modified)
                 .max()
             {
-                let path =
-                    output_path.join(format!("tiles/{}/{}/{}.png", tile.zoom, tile.x, tile.y));
-
-                if fs::metadata(&path)
-                    .map(|m| FileTime::from_last_modification_time(&m))
-                    .map_or(true, |png_modified| png_modified < map_modified)
-                {
+                if tile.render(
+                    &output_path,
+                    layers.iter().flatten().flatten(),
+                    map_modified,
+                ) {
                     *tile_count += 1;
-                    tile.render(&path, layers.iter().flatten().flatten(), map_modified);
                 }
             }
         } else {
