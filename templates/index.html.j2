@@ -138,6 +138,8 @@
 
     <script>
       (function () {
+        const isDebug = window.location.hash === "#debug";
+
         const map = L.map("map", {
           attributionControl: false,
           bounceAtZoomLimits: false,
@@ -155,7 +157,7 @@
           maxNativeZoom: 0,
           maxZoom: 3,
           minNativeZoom: 0,
-          minZoom: 0,
+          minZoom: isDebug ? -1 : 0,
           tileSize: 128,
           updateWhenIdle: false,
           zoomOffset: 4,
@@ -235,7 +237,7 @@
           },
         });
 
-        if (window.location.hash === "#debug") {
+        if (isDebug) {
           // Utilities
           const tileSize = { x: 128, y: 128 };
           const tileCoordinate = (latlng) =>
