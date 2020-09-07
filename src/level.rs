@@ -103,32 +103,22 @@ pub fn get_spawn(level_path: &PathBuf) -> (i32, i32) {
 
     parser.next().unwrap();
     'file: loop {
-        match parser.next() {
-            Err(error) => panic!(error),
-            Ok(value) => {
-                match value {
-                    Value::Compound(Some(ref n)) if n == "Data" => loop {
-                        match parser.next() {
-                            Err(error) => panic!(error),
-                            Ok(value) => {
-                                match value {
-                                    Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
-                                    Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
-                                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
-                                    _ => {}
-                                };
-                            }
-                        }
-
-                        if x.is_some() && z.is_some() {
-                            break 'file;
-                        }
-                    },
+        match parser.next().unwrap() {
+            Value::Compound(Some(ref n)) if n == "Data" => loop {
+                match parser.next().unwrap() {
+                    Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
+                    Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
                     Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
                     _ => {}
-                };
-            }
-        }
+                }
+
+                if x.is_some() && z.is_some() {
+                    break 'file;
+                }
+            },
+            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+            _ => {}
+        };
     }
 
     (x.unwrap(), z.unwrap())
@@ -142,19 +132,14 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> MapData {
     let mut pixels = [0; 128 * 128];
 
     loop {
-        match parser.next() {
-            Err(error) => panic!(error),
-            Ok(value) => {
-                match value {
-                    Value::ByteArray(Some(ref n), v) if n == "colors" => {
-                        pixels.copy_from_slice(&v);
+        match parser.next().unwrap() {
+            Value::ByteArray(Some(ref n), v) if n == "colors" => {
+                pixels.copy_from_slice(&v);
 
-                        return pixels;
-                    }
-                    _ => {}
-                };
+                return pixels;
             }
-        }
+            _ => {}
+        };
     }
 }
 
@@ -194,10 +179,8 @@ where
 
             'file: loop {
                 match parser.next() {
-                    Err(error) => match error {
-                        Error::EOF => break 'file,
-                        _ => panic!(error),
-                    },
+                    Err(Error::EOF) => break 'file,
+                    Err(e) => panic!(e),
                     Ok(value) => {
                         match value {
                             // Short-circuit
@@ -226,105 +209,74 @@ where
 
                             Value::List(Some(ref n), Tag::Compound, _) if n == "banners" => {
                                 'banners: loop {
-                                    match parser.next() {
-                                        Err(error) => panic!(error),
-                                        Ok(value) => {
-                                            match value {
-                                                Value::Compound(None) => {
-                                                    let mut x: Option<i32> = None;
-                                                    let mut z: Option<i32> = None;
-                                                    let mut color: Option<String> = None;
-                                                    let mut label: Option<String> = None;
+                                    match parser.next().unwrap() {
+                                        Value::Compound(None) => {
+                                            let mut x: Option<i32> = None;
+                                            let mut z: Option<i32> = None;
+                                            let mut color: Option<String> = None;
+                                            let mut label: Option<String> = None;
 
-                                                    'banner: loop {
-                                                        match parser.next() {
-                                                            Err(error) => panic!(error),
-                                                            Ok(value) => {
-                                                                match value {
-                                                                    Value::String(
-                                                                        Some(ref n),
-                                                                        v,
-                                                                    ) if n == "Color" => {
-                                                                        color = Some(v)
-                                                                    }
-                                                                    Value::String(
-                                                                        Some(ref n),
-                                                                        v,
-                                                                    ) if n == "Name" => {
-                                                                        let name: NBTName =
-                                                                            serde_json::from_str(
-                                                                                &v,
-                                                                            )
-                                                                            .unwrap();
+                                            'banner: loop {
+                                                match parser.next().unwrap() {
+                                                    Value::String(Some(ref n), v)
+                                                        if n == "Color" =>
+                                                    {
+                                                        color = Some(v)
+                                                    }
+                                                    Value::String(Some(ref n), v)
+                                                        if n == "Name" =>
+                                                    {
+                                                        let name: NBTName =
+                                                            serde_json::from_str(&v).unwrap();
 
-                                                                        label = Some(name.text)
-                                                                    }
-                                                                    Value::Compound(Some(
-                                                                        ref n,
-                                                                    )) if n == "Pos" => {
-                                                                        'position: loop {
-                                                                            match parser.next() {
-                                                                                Err(error) => {
-                                                                                    panic!(error)
-                                                                                }
-                                                                                Ok(value) => {
-                                                                                    match value {
-                                                                                    // Collect
-                                                                            Value::Int(
-                                                                                Some(ref n),
-                                                                                v,
-                                                                            ) if n == "X" => {
-                                                                                x = Some(v)
-                                                                            }
-                                                                            Value::Int(
-                                                                                Some(ref n),
-                                                                                v,
-                                                                            ) if n == "Z" => {
-                                                                                z = Some(v)
-                                                                            }
-
-                                                                            // End
-                                                                            Value::CompoundEnd => {
-                                                                                break 'position
-                                                                            }
-
-                                                                            // Skip
-                                                                            _ => {}
-                                                                                }
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-
-                                                                    // End
-                                                                    Value::CompoundEnd => {
-                                                                        break 'banner
-                                                                    }
-
-                                                                    // Skip
-                                                                    _ => {}
+                                                        label = Some(name.text)
+                                                    }
+                                                    Value::Compound(Some(ref n)) if n == "Pos" => {
+                                                        'position: loop {
+                                                            match parser.next().unwrap() {
+                                                                // Collect
+                                                                Value::Int(Some(ref n), v)
+                                                                    if n == "X" =>
+                                                                {
+                                                                    x = Some(v)
                                                                 }
+                                                                Value::Int(Some(ref n), v)
+                                                                    if n == "Z" =>
+                                                                {
+                                                                    z = Some(v)
+                                                                }
+
+                                                                // End
+                                                                Value::CompoundEnd => {
+                                                                    break 'position
+                                                                }
+
+                                                                // Skip
+                                                                _ => {}
                                                             }
                                                         }
                                                     }
 
-                                                    let color = color.unwrap();
-                                                    let x = x.unwrap();
-                                                    let z = z.unwrap();
+                                                    // End
+                                                    Value::CompoundEnd => break 'banner,
 
-                                                    on_banner(
-                                                        modified,
-                                                        Banner { color, label, x, z },
-                                                    );
+                                                    // Skip
+                                                    _ => {}
                                                 }
-
-                                                // End
-                                                Value::ListEnd => break 'banners,
-
-                                                // Skip
-                                                _ => {}
                                             }
+
+                                            let color = color.unwrap();
+                                            let x = x.unwrap();
+                                            let z = z.unwrap();
+
+                                            on_banner(modified, Banner { color, label, x, z });
                                         }
+
+                                        // End
+                                        Value::ListEnd => break 'banners,
+
+                                        // Skip
+                                        _ => {}
                                     }
                                 }
 
