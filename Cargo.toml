@@ -13,6 +13,11 @@ edition = "2018"
 [workspace]
 members = ["lib"]
 
+[[bin]]
+name = "little-a-map"
+path = "src/main.rs"
+bench = false
+
 [dependencies]
 lib = { path = "./lib" }
 paw = "1.0"
