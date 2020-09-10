@@ -13,14 +13,14 @@ fn draw_behind(tile: &Tile, canvas: &mut Canvas, map: &Map, data: &MapData) {
     let (tx, ty) = tile.position();
     let (mx, my) = map.tile.position();
     let factor = 2i32.pow((tile.zoom - map.tile.zoom) as u32);
+    let a = (tx - mx) / factor + (ty - my) / factor * 128;
+    let b = 128 - 128 / factor;
 
-    for (i, pixel) in canvas.iter_mut().enumerate() {
+    for (i, pixel) in canvas.iter_mut().enumerate().filter(|(_, &mut p)| p < 4) {
         let j = i as i32 / factor;
         let k = i as i32 / 128;
-        let pick = (tx - mx) / factor + (ty - my) / factor * 128 + j + (128 - (128 / factor)) * k
-            - 128 * (k - j / 128);
 
-        let map_pixel = data[pick as usize] as u8;
+        let map_pixel = data[(a + j + b * k - (k - j / 128) * 128) as usize] as u8;
 
         if map_pixel >= 4 {
             *pixel = map_pixel;

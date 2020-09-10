@@ -89,7 +89,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
             {
                 if tile.render(
                     &output_path,
-                    layers.iter().flatten().flatten(),
+                    layers.iter().flatten().flatten().rev(),
                     map_modified,
                     force,
                 ) {
