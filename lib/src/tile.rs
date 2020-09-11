@@ -82,8 +82,11 @@ impl Tile {
         maps_modified: FileTime,
         force: bool,
     ) -> bool {
-        let png_path = output_path.join(format!("tiles/{}/{}/{}.png", self.zoom, self.x, self.y));
-        let meta_path = png_path.with_extension("meta.json");
+        let dir_path = output_path.join(format!("tiles/{}/{}", self.zoom, self.x));
+        fs::create_dir_all(&dir_path).unwrap();
+
+        let base_path = dir_path.join(self.y.to_string());
+        let meta_path = base_path.with_extension("meta.json");
 
         if !force
             && fs::metadata(&meta_path)
@@ -106,12 +109,13 @@ impl Tile {
             .collect::<Vec<_>>();
 
         // Metadata
-        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         serde_json::to_writer(&File::create(&meta_path).unwrap(), &json!({ "maps": ids })).unwrap();
         filetime::set_file_mtime(&meta_path, maps_modified).unwrap();
 
         // Image
         if dirty {
+            let png_path = base_path.with_extension("png");
+
             let mut encoder =
                 png::Encoder::new(BufWriter::new(File::create(&png_path).unwrap()), 128, 128);
             encoder.set_color(png::ColorType::Indexed);
