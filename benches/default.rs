@@ -12,7 +12,7 @@ pub fn bench(c: &mut Criterion) {
     group.bench_function("run", |b| {
         b.iter(|| {
             lib::run(
-                black_box(generator),
+                generator,
                 black_box(&level_path),
                 black_box(&output_path),
                 black_box(true),
