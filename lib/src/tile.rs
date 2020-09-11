@@ -79,12 +79,14 @@ impl Tile {
         output_path: &PathBuf,
         maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
         maps_modified: FileTime,
+        force: bool,
     ) -> bool {
         let png_path = output_path.join(format!("tiles/{}/{}/{}.png", self.zoom, self.x, self.y));
 
-        if fs::metadata(&png_path)
-            .map(|m| FileTime::from_last_modification_time(&m))
-            .map_or(false, |png_modified| png_modified >= maps_modified)
+        if !force
+            && fs::metadata(&png_path)
+                .map(|m| FileTime::from_last_modification_time(&m))
+                .map_or(false, |png_modified| png_modified >= maps_modified)
         {
             return false;
         }

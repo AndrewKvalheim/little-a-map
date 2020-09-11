@@ -17,3 +17,10 @@ members = ["lib"]
 lib = { path = "./lib" }
 paw = "1.0"
 structopt = { version = "0.3", features = ["paw"] }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "default"
+harness = false

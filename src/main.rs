@@ -17,5 +17,5 @@ fn main(args: Args) {
 
     let generator = format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    lib::run(&generator, &level_path, &output_path);
+    lib::run(&generator, &level_path, &output_path, false);
 }

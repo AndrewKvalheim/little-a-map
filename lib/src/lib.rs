@@ -33,7 +33,7 @@ struct IndexTemplate<'a> {
     spawn_z: i32,
 }
 
-pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
+pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: bool) {
     let mut stats = Stats {
         banners: 0,
         tiles: 0,
@@ -68,6 +68,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
         tile_count: &mut usize,
         level_path: &PathBuf,
         output_path: &PathBuf,
+        force: bool,
         maps_by_tile: &'a HashMap<Tile, OrderedMaps>,
         layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
         tile: &Tile,
@@ -90,6 +91,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
                     &output_path,
                     layers.iter().flatten().flatten(),
                     map_modified,
+                    force,
                 ) {
                     *tile_count += 1;
                 }
@@ -100,6 +102,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
                     tile_count,
                     level_path,
                     output_path,
+                    force,
                     maps_by_tile,
                     layers,
                     &t,
@@ -118,6 +121,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
                 &mut tile_count,
                 &level_path,
                 &output_path,
+                force,
                 &maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
@@ -130,9 +134,10 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf) {
     if let Some(modified) = banners_modified {
         let banners_path = output_path.join("banners.json");
 
-        if fs::metadata(&banners_path)
-            .map(|m| FileTime::from_last_modification_time(&m))
-            .map_or(true, |json_modified| json_modified < modified)
+        if force
+            || fs::metadata(&banners_path)
+                .map(|m| FileTime::from_last_modification_time(&m))
+                .map_or(true, |json_modified| json_modified < modified)
         {
             stats.banners += banners.len();
 
