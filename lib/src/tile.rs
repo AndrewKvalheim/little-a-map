@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 type Canvas = [u8; 128 * 128];
 
-fn draw_behind(tile: &Tile, canvas: &mut Canvas, map: &Map, data: &MapData) {
+fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, data: &MapData) {
     let (tx, ty) = tile.position();
     let (mx, my) = map.tile.position();
     let factor = 2i32.pow((tile.zoom - map.tile.zoom) as u32);
@@ -23,6 +23,7 @@ fn draw_behind(tile: &Tile, canvas: &mut Canvas, map: &Map, data: &MapData) {
         let map_pixel = data[(a + j + b * k - (k - j / 128) * 128) as usize] as u8;
 
         if map_pixel >= 4 {
+            *dirty = true;
             *pixel = map_pixel;
         }
     }
@@ -82,9 +83,10 @@ impl Tile {
         force: bool,
     ) -> bool {
         let png_path = output_path.join(format!("tiles/{}/{}/{}.png", self.zoom, self.x, self.y));
+        let meta_path = png_path.with_extension("meta.json");
 
         if !force
-            && fs::metadata(&png_path)
+            && fs::metadata(&meta_path)
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(false, |png_modified| png_modified >= maps_modified)
         {
@@ -93,36 +95,38 @@ impl Tile {
 
         let mut canvas = [0; 128 * 128];
 
+        let mut dirty = false;
         let ids = maps
             .into_iter()
             .map(|&(map, data)| {
-                draw_behind(self, &mut canvas, map, &data);
+                draw_behind(self, &mut dirty, &mut canvas, map, &data);
 
                 map.id
             })
             .collect::<Vec<_>>();
 
-        // Image
-        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
-        let mut encoder =
-            png::Encoder::new(BufWriter::new(File::create(&png_path).unwrap()), 128, 128);
-        encoder.set_color(png::ColorType::Indexed);
-        encoder.set_compression(png::Compression::Rle);
-        encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_filter(png::FilterType::NoFilter);
-        encoder.set_palette(level::PALETTE.clone());
-        encoder.set_trns(level::TRNS.to_vec());
-        encoder
-            .write_header()
-            .unwrap()
-            .write_image_data(&canvas)
-            .unwrap();
-        filetime::set_file_mtime(&png_path, maps_modified).unwrap();
-
         // Metadata
-        let meta_path = png_path.with_extension("meta.json");
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         serde_json::to_writer(&File::create(&meta_path).unwrap(), &json!({ "maps": ids })).unwrap();
         filetime::set_file_mtime(&meta_path, maps_modified).unwrap();
+
+        // Image
+        if dirty {
+            let mut encoder =
+                png::Encoder::new(BufWriter::new(File::create(&png_path).unwrap()), 128, 128);
+            encoder.set_color(png::ColorType::Indexed);
+            encoder.set_compression(png::Compression::Rle);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder.set_filter(png::FilterType::NoFilter);
+            encoder.set_palette(level::PALETTE.clone());
+            encoder.set_trns(level::TRNS.to_vec());
+            encoder
+                .write_header()
+                .unwrap()
+                .write_image_data(&canvas)
+                .unwrap();
+            filetime::set_file_mtime(&png_path, maps_modified).unwrap();
+        }
 
         true
     }
