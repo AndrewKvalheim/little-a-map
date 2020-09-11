@@ -6,6 +6,7 @@ use filetime::FileTime;
 use flate2::read::GzDecoder;
 use glob::glob;
 use lazy_static::lazy_static;
+use semver::Version;
 use serde::Deserialize;
 use std::fs::{self, File};
 use std::path::PathBuf;
@@ -88,16 +89,23 @@ lazy_static! {
     };
 }
 
+pub struct Level {
+    pub spawn_x: i32,
+    pub spawn_z: i32,
+    pub version: Version,
+}
+
 #[derive(Deserialize)]
 struct NBTName {
     text: String,
 }
 
-pub fn get_spawn(level_path: &PathBuf) -> (i32, i32) {
+pub fn read_level(level_path: &PathBuf) -> Level {
     let file = File::open(&level_path.join("level.dat")).unwrap();
     let decoder = GzDecoder::new(file);
     let mut parser = Parser::new(decoder);
 
+    let mut version: Option<String> = None;
     let mut x: Option<i32> = None;
     let mut z: Option<i32> = None;
 
@@ -108,11 +116,18 @@ pub fn get_spawn(level_path: &PathBuf) -> (i32, i32) {
                 match parser.next().unwrap() {
                     Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
                     Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
+                    Value::Compound(Some(ref n)) if n == "Version" => 'version: loop {
+                        match parser.next().unwrap() {
+                            Value::String(Some(ref n), v) if n == "Name" => version = Some(v),
+                            Value::CompoundEnd => break 'version,
+                            _ => {}
+                        }
+                    },
                     Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
                     _ => {}
                 }
 
-                if x.is_some() && z.is_some() {
+                if x.is_some() && z.is_some() && version.is_some() {
                     break 'file;
                 }
             },
@@ -121,7 +136,11 @@ pub fn get_spawn(level_path: &PathBuf) -> (i32, i32) {
         };
     }
 
-    (x.unwrap(), z.unwrap())
+    Level {
+        spawn_x: x.unwrap(),
+        spawn_z: z.unwrap(),
+        version: Version::parse(&version.unwrap()).unwrap(),
+    }
 }
 
 pub fn load_map(level_path: &PathBuf, id: u32) -> MapData {

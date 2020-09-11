@@ -9,6 +9,7 @@ use filetime::{self, FileTime};
 use level::MapData;
 use map::Map;
 use rayon::prelude::*;
+use semver::VersionReq;
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
@@ -16,6 +17,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 use tile::Tile;
+
+const COMPATIBLE_VERSIONS: &'static str = "~1.16.2";
 
 type OrderedMaps = BTreeSet<Map>;
 
@@ -39,6 +42,14 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
         tiles: 0,
         start: Instant::now(),
     };
+
+    let level_info = level::read_level(&level_path);
+    if !VersionReq::parse(COMPATIBLE_VERSIONS)
+        .unwrap()
+        .matches(&level_info.version)
+    {
+        panic!("Incompatible with game version {}", level_info.version);
+    }
 
     let mut banners: BTreeSet<Banner> = BTreeSet::new();
     let mut banners_modified: Option<FileTime> = None;
@@ -176,11 +187,10 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
         }
     }
 
-    let (spawn_x, spawn_z) = level::get_spawn(&level_path);
     let index_template = IndexTemplate {
         generator,
-        spawn_x,
-        spawn_z,
+        spawn_x: level_info.spawn_x,
+        spawn_z: level_info.spawn_z,
     };
     File::create(output_path.join("index.html"))
         .unwrap()
