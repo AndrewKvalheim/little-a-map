@@ -109,31 +109,38 @@ pub fn read_level(level_path: &PathBuf) -> Level {
     let mut x: Option<i32> = None;
     let mut z: Option<i32> = None;
 
-    parser.next().unwrap();
     'file: loop {
         match parser.next().unwrap() {
-            Value::Compound(Some(ref n)) if n == "Data" => loop {
+            Value::Compound(Some(ref n)) if n == "" => loop {
                 match parser.next().unwrap() {
-                    Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
-                    Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
-                    Value::Compound(Some(ref n)) if n == "Version" => 'version: loop {
+                    Value::Compound(Some(ref n)) if n == "Data" => loop {
                         match parser.next().unwrap() {
-                            Value::String(Some(ref n), v) if n == "Name" => version = Some(v),
-                            Value::CompoundEnd => break 'version,
+                            Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
+                            Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
+                            Value::Compound(Some(ref n)) if n == "Version" => 'version: loop {
+                                match parser.next().unwrap() {
+                                    Value::String(Some(ref n), v) if n == "Name" => {
+                                        version = Some(v)
+                                    }
+                                    Value::CompoundEnd => break 'version,
+                                    _ => {}
+                                }
+                            },
+                            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
                             _ => {}
+                        }
+
+                        if x.is_some() && z.is_some() && version.is_some() {
+                            break 'file;
                         }
                     },
                     Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
                     _ => {}
-                }
-
-                if x.is_some() && z.is_some() && version.is_some() {
-                    break 'file;
-                }
+                };
             },
             Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
             _ => {}
-        };
+        }
     }
 
     Level {
@@ -200,121 +207,141 @@ where
                 match parser.next() {
                     Err(Error::EOF) => break 'file,
                     Err(e) => panic!(e),
-                    Ok(value) => {
-                        match value {
-                            // Short-circuit
-                            Value::Int(Some(ref n), v) if n == "dimension" => {
-                                if v == 0 {
-                                    overworld = Some(true);
-                                } else {
-                                    break 'file;
-                                }
-                            }
-                            Value::String(Some(ref n), v) if n == "dimension" => {
-                                if v == "minecraft:overworld" {
-                                    overworld = Some(true);
-                                } else {
-                                    break 'file;
-                                }
-                            }
-
-                            // Collect
-                            Value::Byte(Some(ref n), v) if n == "scale" => scale = Some(v),
-                            Value::Byte(Some(ref n), v) if n == "unlimitedTracking" => {
-                                unlimited_tracking = Some(v == 1)
-                            }
-                            Value::Int(Some(ref n), v) if n == "xCenter" => x = Some(v),
-                            Value::Int(Some(ref n), v) if n == "zCenter" => z = Some(v),
-
-                            Value::List(Some(ref n), Tag::Compound, _) if n == "banners" => {
-                                'banners: loop {
-                                    match parser.next().unwrap() {
-                                        Value::Compound(None) => {
-                                            let mut x: Option<i32> = None;
-                                            let mut z: Option<i32> = None;
-                                            let mut color: Option<String> = None;
-                                            let mut label: Option<String> = None;
-
-                                            'banner: loop {
-                                                match parser.next().unwrap() {
-                                                    Value::String(Some(ref n), v)
-                                                        if n == "Color" =>
-                                                    {
-                                                        color = Some(v)
+                    Ok(value) => match value {
+                        Value::Compound(Some(ref n)) if n == "" => loop {
+                            match parser.next() {
+                                Err(Error::EOF) => break 'file,
+                                Err(e) => panic!(e),
+                                Ok(value) => match value {
+                                    Value::Compound(Some(ref n)) if n == "data" => loop {
+                                        match parser.next() {
+                                            Err(Error::EOF) => break 'file,
+                                            Err(e) => panic!(e),
+                                            Ok(value) => {
+                                                match value {
+                                                    // Short-circuit
+                                                    Value::Int(Some(ref n), v) if n == "dimension" => {
+                                                        if v == 0 {
+                                                            overworld = Some(true);
+                                                        } else {
+                                                            break 'file;
+                                                        }
                                                     }
-                                                    Value::String(Some(ref n), v)
-                                                        if n == "Name" =>
-                                                    {
-                                                        let name: NBTName =
-                                                            serde_json::from_str(&v).unwrap();
-
-                                                        label = Some(name.text)
+                                                    Value::String(Some(ref n), v) if n == "dimension" => {
+                                                        if v == "minecraft:overworld" {
+                                                            overworld = Some(true);
+                                                        } else {
+                                                            break 'file;
+                                                        }
                                                     }
-                                                    Value::Compound(Some(ref n)) if n == "Pos" => {
-                                                        'position: loop {
+
+                                                    // Collect
+                                                    Value::Byte(Some(ref n), v) if n == "scale" => scale = Some(v),
+                                                    Value::Byte(Some(ref n), v) if n == "unlimitedTracking" => {
+                                                        unlimited_tracking = Some(v == 1)
+                                                    }
+                                                    Value::Int(Some(ref n), v) if n == "xCenter" => x = Some(v),
+                                                    Value::Int(Some(ref n), v) if n == "zCenter" => z = Some(v),
+
+                                                    Value::List(Some(ref n), Tag::Compound, _) if n == "banners" => {
+                                                        'banners: loop {
                                                             match parser.next().unwrap() {
-                                                                // Collect
-                                                                Value::Int(Some(ref n), v)
-                                                                    if n == "X" =>
-                                                                {
-                                                                    x = Some(v)
-                                                                }
-                                                                Value::Int(Some(ref n), v)
-                                                                    if n == "Z" =>
-                                                                {
-                                                                    z = Some(v)
+                                                                Value::Compound(None) => {
+                                                                    let mut x: Option<i32> = None;
+                                                                    let mut z: Option<i32> = None;
+                                                                    let mut color: Option<String> = None;
+                                                                    let mut label: Option<String> = None;
+
+                                                                    'banner: loop {
+                                                                        match parser.next().unwrap() {
+                                                                            Value::String(Some(ref n), v)
+                                                                                if n == "Color" =>
+                                                                            {
+                                                                                color = Some(v)
+                                                                            }
+                                                                            Value::String(Some(ref n), v)
+                                                                                if n == "Name" =>
+                                                                            {
+                                                                                let name: NBTName =
+                                                                                    serde_json::from_str(&v).unwrap();
+
+                                                                                label = Some(name.text)
+                                                                            }
+                                                                            Value::Compound(Some(ref n)) if n == "Pos" => {
+                                                                                'position: loop {
+                                                                                    match parser.next().unwrap() {
+                                                                                        // Collect
+                                                                                        Value::Int(Some(ref n), v)
+                                                                                            if n == "X" =>
+                                                                                        {
+                                                                                            x = Some(v)
+                                                                                        }
+                                                                                        Value::Int(Some(ref n), v)
+                                                                                            if n == "Z" =>
+                                                                                        {
+                                                                                            z = Some(v)
+                                                                                        }
+
+                                                                                        // End
+                                                                                        Value::CompoundEnd => {
+                                                                                            break 'position
+                                                                                        }
+
+                                                                                        // Skip
+                                                                                        _ => {}
+                                                                                    }
+                                                                                }
+                                                                            }
+
+                                                                            // End
+                                                                            Value::CompoundEnd => break 'banner,
+
+                                                                            // Skip
+                                                                            _ => {}
+                                                                        }
+                                                                    }
+
+                                                                    let color = color.unwrap();
+                                                                    let x = x.unwrap();
+                                                                    let z = z.unwrap();
+
+                                                                    on_banner(modified, Banner { color, label, x, z });
                                                                 }
 
                                                                 // End
-                                                                Value::CompoundEnd => {
-                                                                    break 'position
-                                                                }
+                                                                Value::ListEnd => break 'banners,
 
                                                                 // Skip
                                                                 _ => {}
                                                             }
                                                         }
+
+                                                        added_banners = true;
                                                     }
 
-                                                    // End
-                                                    Value::CompoundEnd => break 'banner,
-
                                                     // Skip
+                                                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
                                                     _ => {}
+                                                };
+                                                if overworld.is_some()
+                                                    && unlimited_tracking.is_some()
+                                                    && scale.is_some()
+                                                    && x.is_some()
+                                                    && z.is_some()
+                                                    && added_banners
+                                                {
+                                                    break 'file;
                                                 }
                                             }
-
-                                            let color = color.unwrap();
-                                            let x = x.unwrap();
-                                            let z = z.unwrap();
-
-                                            on_banner(modified, Banner { color, label, x, z });
                                         }
-
-                                        // End
-                                        Value::ListEnd => break 'banners,
-
-                                        // Skip
-                                        _ => {}
-                                    }
+                                    },
+                                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                                    _ => {}
                                 }
-
-                                added_banners = true;
                             }
-
-                            // Skip
-                            // TODO: Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
-                            _ => {}
-                        };
-                        if overworld.is_some()
-                            && unlimited_tracking.is_some()
-                            && scale.is_some()
-                            && x.is_some()
-                            && z.is_some()
-                            && added_banners
-                        {
-                            break 'file;
-                        }
+                        },
+                        Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                        _ => {}
                     }
                 }
             }
