@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tile::Tile;
 
-const COMPATIBLE_VERSIONS: &'static str = "~1.16.2";
+const COMPATIBLE_VERSIONS: &str = "~1.16.2";
 
 type OrderedMaps = BTreeSet<Map>;
 
