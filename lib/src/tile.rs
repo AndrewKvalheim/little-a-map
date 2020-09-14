@@ -1,5 +1,6 @@
 use crate::level::{self, MapData};
 use crate::map::Map;
+use anyhow::Result;
 use filetime::FileTime;
 use serde_json::json;
 use std::fs::{self, File};
@@ -81,9 +82,9 @@ impl Tile {
         maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
         maps_modified: FileTime,
         force: bool,
-    ) -> bool {
+    ) -> Result<bool> {
         let dir_path = output_path.join(format!("tiles/{}/{}", self.zoom, self.x));
-        fs::create_dir_all(&dir_path).unwrap();
+        fs::create_dir_all(&dir_path)?;
 
         let base_path = dir_path.join(self.y.to_string());
         let meta_path = base_path.with_extension("meta.json");
@@ -93,7 +94,7 @@ impl Tile {
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(false, |png_modified| png_modified >= maps_modified)
         {
-            return false;
+            return Ok(false);
         }
 
         let mut canvas = [0; 128 * 128];
@@ -109,30 +110,25 @@ impl Tile {
             .collect::<Vec<_>>();
 
         // Metadata
-        serde_json::to_writer(&File::create(&meta_path).unwrap(), &json!({ "maps": ids })).unwrap();
-        filetime::set_file_mtime(&meta_path, maps_modified).unwrap();
+        serde_json::to_writer(&File::create(&meta_path)?, &json!({ "maps": ids }))?;
+        filetime::set_file_mtime(&meta_path, maps_modified)?;
 
         // Image
         if dirty {
             let png_path = base_path.with_extension("png");
 
-            let mut encoder =
-                png::Encoder::new(BufWriter::new(File::create(&png_path).unwrap()), 128, 128);
+            let mut encoder = png::Encoder::new(BufWriter::new(File::create(&png_path)?), 128, 128);
             encoder.set_color(png::ColorType::Indexed);
             encoder.set_compression(png::Compression::Rle);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
             encoder.set_palette(level::PALETTE.clone());
             encoder.set_trns(level::TRNS.to_vec());
-            encoder
-                .write_header()
-                .unwrap()
-                .write_image_data(&canvas)
-                .unwrap();
-            filetime::set_file_mtime(&png_path, maps_modified).unwrap();
+            encoder.write_header()?.write_image_data(&canvas)?;
+            filetime::set_file_mtime(&png_path, maps_modified)?;
         }
 
-        true
+        Ok(true)
     }
 
     pub fn root(&self) -> Self {

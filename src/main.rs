@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -11,11 +12,11 @@ struct Args {
 }
 
 #[paw::main]
-fn main(args: Args) {
+fn main(args: Args) -> Result<()> {
     let level_path = args.level_path;
     let output_path = args.output_path;
 
     let generator = format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    lib::run(&generator, &level_path, &output_path, false);
+    lib::run(&generator, &level_path, &output_path, false)
 }

@@ -5,6 +5,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
+anyhow = "1.0"
 askama = "0.10.2"
 derivative = "2.1.1"
 fastnbt = "0.6.0"

@@ -3,6 +3,7 @@ pub mod level;
 pub mod map;
 pub mod tile;
 
+use anyhow::Result;
 use askama::Template;
 use banner::Banner;
 use filetime::{self, FileTime};
@@ -36,18 +37,20 @@ struct IndexTemplate<'a> {
     spawn_z: i32,
 }
 
-pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: bool) {
+pub fn run(
+    generator: &str,
+    level_path: &PathBuf,
+    output_path: &PathBuf,
+    force: bool,
+) -> Result<()> {
     let mut stats = Stats {
         banners: 0,
         tiles: 0,
         start: Instant::now(),
     };
 
-    let level_info = level::read_level(&level_path);
-    if !VersionReq::parse(COMPATIBLE_VERSIONS)
-        .unwrap()
-        .matches(&level_info.version)
-    {
+    let level_info = level::read_level(&level_path)?;
+    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level_info.version) {
         panic!("Incompatible with game version {}", level_info.version);
     }
 
@@ -73,7 +76,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
                 banners_modified.replace(modified);
             }
         },
-    );
+    )?;
 
     fn render<'a>(
         tile_count: &mut usize,
@@ -83,12 +86,17 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
         maps_by_tile: &'a HashMap<Tile, OrderedMaps>,
         layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
         tile: &Tile,
-    ) {
-        layers.push(maps_by_tile.get(&tile).map(|maps| {
-            maps.iter()
-                .map(|map| (map, level::load_map(level_path, map.id)))
-                .collect()
-        }));
+    ) -> Result<()> {
+        layers.push(
+            maps_by_tile
+                .get(&tile)
+                .map(|maps| {
+                    maps.iter()
+                        .map(|map| Ok((map, level::load_map(level_path, map.id)?)))
+                        .collect::<Result<_>>()
+                })
+                .transpose()?,
+        );
 
         if tile.zoom == 4 {
             if let Some(map_modified) = layers
@@ -103,12 +111,12 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
                     layers.iter().flatten().flatten().rev(),
                     map_modified,
                     force,
-                ) {
+                )? {
                     *tile_count += 1;
                 }
             }
         } else {
-            tile.quadrants().iter().for_each(|t| {
+            tile.quadrants().iter().try_for_each(|t| {
                 render(
                     tile_count,
                     level_path,
@@ -118,14 +126,16 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
                     layers,
                     &t,
                 )
-            });
+            })?;
         }
 
         layers.pop();
+
+        Ok(())
     };
     stats.tiles += root_tiles
         .par_iter()
-        .map(|t| {
+        .map(|t| -> Result<usize> {
             let mut tile_count = 0;
 
             render(
@@ -136,11 +146,11 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
                 &maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
-            );
+            )?;
 
-            tile_count
+            Ok(tile_count)
         })
-        .sum::<usize>();
+        .try_reduce(|| 0, |a, b| Ok(a + b))?;
 
     if let Some(modified) = banners_modified {
         let banners_path = output_path.join("banners.json");
@@ -163,27 +173,36 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
                 counts
             };
 
-            serde_json::to_writer(
-                    &File::create(&banners_path).unwrap(),
-                    &json!({
-                        "type": "FeatureCollection",
-                        "features": banners.iter().map(|banner| json!({
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [banner.x, banner.z]
-                            },
-                            "properties": {
-                                "color": banner.color,
-                                "name": banner.label,
-                                "unique": banner.label.as_ref().map_or(false, |l| *label_counts.get(l.as_str()).unwrap() == 1),
-                            }
-                        })).collect::<Vec<_>>()
-                    }),
-                )
-                .unwrap();
+            let is_unique = |banner: &Banner| -> bool {
+                match banner.label.as_deref() {
+                    None => false,
+                    Some(l) => match label_counts.get(l) {
+                        Some(1) => true,
+                        _ => false,
+                    },
+                }
+            };
 
-            filetime::set_file_mtime(banners_path, modified).unwrap();
+            serde_json::to_writer(
+                &File::create(&banners_path)?,
+                &json!({
+                    "type": "FeatureCollection",
+                    "features": banners.iter().map(|banner| json!({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [banner.x, banner.z]
+                        },
+                        "properties": {
+                            "color": banner.color,
+                            "name": banner.label,
+                            "unique": is_unique(banner),
+                        }
+                    })).collect::<Vec<_>>()
+                }),
+            )?;
+
+            filetime::set_file_mtime(banners_path, modified)?;
         }
     }
 
@@ -192,10 +211,7 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
         spawn_x: level_info.spawn_x,
         spawn_z: level_info.spawn_z,
     };
-    File::create(output_path.join("index.html"))
-        .unwrap()
-        .write_all(index_template.render().unwrap().as_bytes())
-        .unwrap();
+    File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if stats.banners == 0 && stats.tiles == 0 {
         println!("Nothing to do");
@@ -207,4 +223,6 @@ pub fn run(generator: &str, level_path: &PathBuf, output_path: &PathBuf, force: 
             stats.start.elapsed().as_secs_f32()
         );
     }
+
+    Ok(())
 }

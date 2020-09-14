@@ -1,6 +1,7 @@
 use crate::banner::Banner;
 use crate::map::Map;
 use crate::tile::Tile;
+use anyhow::{anyhow, Result};
 use fastnbt::nbt::{self, Error, Parser, Tag, Value};
 use filetime::FileTime;
 use flate2::read::GzDecoder;
@@ -100,8 +101,18 @@ struct NBTName {
     text: String,
 }
 
-pub fn read_level(level_path: &PathBuf) -> Level {
-    let file = File::open(&level_path.join("level.dat")).unwrap();
+fn err(error: nbt::Error) -> anyhow::Error {
+    match error {
+        nbt::Error::EOF => anyhow!("nbt::Error::EOF"),
+        nbt::Error::InvalidName => anyhow!("nbt::Error::InvalidName"),
+        nbt::Error::InvalidTag(i) => anyhow!("nbt::Error::InvalidTag({})", i),
+        nbt::Error::IO(e) => anyhow!(e),
+        nbt::Error::ShortRead => anyhow!("nbt::Error::ShortRead"),
+    }
+}
+
+pub fn read_level(level_path: &PathBuf) -> Result<Level> {
+    let file = File::open(&level_path.join("level.dat"))?;
     let decoder = GzDecoder::new(file);
     let mut parser = Parser::new(decoder);
 
@@ -110,15 +121,15 @@ pub fn read_level(level_path: &PathBuf) -> Level {
     let mut z: Option<i32> = None;
 
     'file: loop {
-        match parser.next().unwrap() {
+        match parser.next().map_err(err)? {
             Value::Compound(Some(ref n)) if n == "" => loop {
-                match parser.next().unwrap() {
+                match parser.next().map_err(err)? {
                     Value::Compound(Some(ref n)) if n == "Data" => loop {
-                        match parser.next().unwrap() {
+                        match parser.next().map_err(err)? {
                             Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
                             Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
                             Value::Compound(Some(ref n)) if n == "Version" => 'version: loop {
-                                match parser.next().unwrap() {
+                                match parser.next().map_err(err)? {
                                     Value::String(Some(ref n), v) if n == "Name" => {
                                         version = Some(v)
                                     }
@@ -126,7 +137,7 @@ pub fn read_level(level_path: &PathBuf) -> Level {
                                     _ => {}
                                 }
                             },
-                            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                            Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
                             _ => {}
                         }
 
@@ -134,52 +145,51 @@ pub fn read_level(level_path: &PathBuf) -> Level {
                             break 'file;
                         }
                     },
-                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                    Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
                     _ => {}
                 };
             },
-            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+            Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
             _ => {}
         }
     }
 
-    Level {
+    Ok(Level {
         spawn_x: x.unwrap(),
         spawn_z: z.unwrap(),
-        version: Version::parse(&version.unwrap()).unwrap(),
-    }
+        version: Version::parse(&version.unwrap())?,
+    })
 }
 
-pub fn load_map(level_path: &PathBuf, id: u32) -> MapData {
-    let map_file = File::open(&level_path.join(format!("data/map_{}.dat", id))).unwrap();
+pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
+    let map_file = File::open(&level_path.join(format!("data/map_{}.dat", id)))?;
     let decoder = GzDecoder::new(map_file);
     let mut parser = Parser::new(decoder);
 
     let mut pixels = [0; 128 * 128];
 
     loop {
-        match parser.next().unwrap() {
+        match parser.next().map_err(err)? {
             Value::ByteArray(Some(ref n), v) if n == "colors" => {
                 pixels.copy_from_slice(&v);
 
-                return pixels;
+                return Ok(pixels);
             }
             _ => {}
         };
     }
 }
 
-pub fn scan<M, B>(level_path: &PathBuf, mut on_map: M, mut on_banner: B)
+pub fn scan<M, B>(level_path: &PathBuf, mut on_map: M, mut on_banner: B) -> Result<()>
 where
     B: FnMut(FileTime, Banner),
     M: FnMut(Map),
 {
-    glob(level_path.join("data/map_*.dat").to_str().unwrap())
-        .unwrap()
-        .for_each(|entry| {
-            let map_path = entry.unwrap();
+    glob(level_path.join("data/map_*.dat").to_str().unwrap())?
+        .try_for_each(|entry| {
+            let map_path = entry?;
 
-            let modified = FileTime::from_last_modification_time(&fs::metadata(&map_path).unwrap());
+            let modified = FileTime::from_last_modification_time(&fs::metadata(&map_path)?);
 
             let id = map_path
                 .file_stem()
@@ -189,10 +199,9 @@ where
                 .rsplit('_')
                 .next()
                 .unwrap()
-                .parse::<u32>()
-                .unwrap();
+                .parse::<u32>()?;
 
-            let map_file = File::open(&map_path).unwrap();
+            let map_file = File::open(&map_path)?;
             let decoder = GzDecoder::new(map_file);
             let mut parser = Parser::new(decoder);
 
@@ -245,7 +254,7 @@ where
 
                                                     Value::List(Some(ref n), Tag::Compound, _) if n == "banners" => {
                                                         'banners: loop {
-                                                            match parser.next().unwrap() {
+                                                            match parser.next().map_err(err)? {
                                                                 Value::Compound(None) => {
                                                                     let mut x: Option<i32> = None;
                                                                     let mut z: Option<i32> = None;
@@ -253,7 +262,7 @@ where
                                                                     let mut label: Option<String> = None;
 
                                                                     'banner: loop {
-                                                                        match parser.next().unwrap() {
+                                                                        match parser.next().map_err(err)? {
                                                                             Value::String(Some(ref n), v)
                                                                                 if n == "Color" =>
                                                                             {
@@ -263,13 +272,13 @@ where
                                                                                 if n == "Name" =>
                                                                             {
                                                                                 let name: NBTName =
-                                                                                    serde_json::from_str(&v).unwrap();
+                                                                                    serde_json::from_str(&v)?;
 
                                                                                 label = Some(name.text)
                                                                             }
                                                                             Value::Compound(Some(ref n)) if n == "Pos" => {
                                                                                 'position: loop {
-                                                                                    match parser.next().unwrap() {
+                                                                                    match parser.next().map_err(err)? {
                                                                                         // Collect
                                                                                         Value::Int(Some(ref n), v)
                                                                                             if n == "X" =>
@@ -320,7 +329,7 @@ where
                                                     }
 
                                                     // Skip
-                                                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                                                    Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
                                                     _ => {}
                                                 };
                                                 if overworld.is_some()
@@ -335,12 +344,12 @@ where
                                             }
                                         }
                                     },
-                                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                                    Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
                                     _ => {}
                                 }
                             }
                         },
-                        Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                        Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
                         _ => {}
                     }
                 }
@@ -352,7 +361,7 @@ where
                 || x.is_none()
                 || z.is_none()
             {
-                return;
+                return Ok(());
             }
 
             let scale = scale.unwrap();
@@ -364,5 +373,7 @@ where
                 modified,
                 tile: Tile::from_position(scale, x, z),
             });
-        });
+
+            Ok(())
+        })
 }
