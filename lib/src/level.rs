@@ -355,24 +355,13 @@ where
                 }
             }
 
-            if overworld != Some(true)
-                || unlimited_tracking == Some(true)
-                || scale.is_none()
-                || x.is_none()
-                || z.is_none()
+            if let (Some(true), Some(false), Some(scale), Some(x), Some(z)) =
+                (overworld, unlimited_tracking, scale, x, z)
             {
-                return Ok(());
+                let tile = Tile::from_position(scale, x, z);
+
+                on_map(Map { id, modified, tile });
             }
-
-            let scale = scale.unwrap();
-            let x = x.unwrap();
-            let z = z.unwrap();
-
-            on_map(Map {
-                id,
-                modified,
-                tile: Tile::from_position(scale, x, z),
-            });
 
             Ok(())
         })
