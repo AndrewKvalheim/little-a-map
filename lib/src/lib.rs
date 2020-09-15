@@ -25,6 +25,7 @@ type OrderedMaps = BTreeSet<Map>;
 
 struct Stats {
     banners: usize,
+    maps: usize,
     tiles: usize,
     start: Instant,
 }
@@ -45,6 +46,7 @@ pub fn run(
 ) -> Result<()> {
     let mut stats = Stats {
         banners: 0,
+        maps: 0,
         tiles: 0,
         start: Instant::now(),
     };
@@ -62,6 +64,8 @@ pub fn run(
     level::scan(
         &level_path,
         |map| {
+            stats.maps += 1;
+
             root_tiles.insert(map.tile.root());
 
             maps_by_tile
@@ -217,8 +221,9 @@ pub fn run(
         println!("Nothing to do");
     } else {
         println!(
-            "Rendered {} tiles and {} banners in {:.2}s",
+            "Rendered {} tiles from {} maps and {} banners in {:.2}s",
             stats.tiles,
+            stats.maps,
             stats.banners,
             stats.start.elapsed().as_secs_f32()
         );
