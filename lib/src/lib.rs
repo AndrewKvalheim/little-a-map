@@ -218,7 +218,7 @@ pub fn run(
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if stats.banners == 0 && stats.tiles == 0 {
-        println!("Nothing to do");
+        println!("Already up-to-date");
     } else {
         println!(
             "Rendered {} tiles from {} maps and {} banners in {:.2}s",
