@@ -26,6 +26,8 @@ type OrderedMaps = BTreeSet<Map>;
 struct Stats {
     banners: usize,
     maps: usize,
+    players: usize,
+    regions: usize,
     tiles: usize,
     start: Instant,
 }
@@ -47,6 +49,8 @@ pub fn run(
     let mut stats = Stats {
         banners: 0,
         maps: 0,
+        players: 0,
+        regions: 0,
         tiles: 0,
         start: Instant::now(),
     };
@@ -56,13 +60,30 @@ pub fn run(
         panic!("Incompatible with game version {}", level_info.version);
     }
 
+    let ids_by_player = level::scan_players(&level_path, &mut stats.players)?;
+    let ids_by_region = level::scan_regions(&level_path, &mut stats.regions)?;
+    println!(
+        "Scanned {} regions and {} players in {:.2}s",
+        stats.regions,
+        stats.players,
+        stats.start.elapsed().as_secs_f32()
+    );
+    stats.start = Instant::now();
+
     let mut banners: BTreeSet<Banner> = BTreeSet::new();
     let mut banners_modified: Option<FileTime> = None;
     let mut root_tiles: HashSet<Tile> = HashSet::new();
     let mut maps_by_tile: HashMap<Tile, OrderedMaps> = HashMap::new();
 
-    level::scan(
+    let ids: HashSet<u32> = ids_by_player
+        .into_iter()
+        .flat_map(|(_, ids)| ids)
+        .chain(ids_by_region.into_iter().flat_map(|(_, ids)| ids))
+        .collect();
+
+    level::scan_maps(
         &level_path,
+        ids,
         |map| {
             stats.maps += 1;
 

@@ -8,7 +8,7 @@ publish = false
 anyhow = "1.0"
 askama = "0.10.2"
 derivative = "2.1.1"
-fastnbt = "0.6.0"
+fastnbt = { git = "https://github.com/owengage/fastnbt.git", rev = "2c67c78" }
 filetime = "0.2.10"
 flate2 = "1.0.16"
 glob = "0.3.0"
