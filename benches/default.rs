@@ -39,6 +39,7 @@ pub fn bench_render(c: &mut Criterion) {
                     generator,
                     black_box(&level_path),
                     black_box(&output_path),
+                    true,
                     black_box(true),
                     black_box(&level_info),
                     ids,
@@ -66,7 +67,7 @@ pub fn bench_scan(c: &mut Criterion) {
     let mut group = c.benchmark_group("little-a-map");
     group.sample_size(20);
     group.bench_function("scan", |b| {
-        b.iter(|| lib::scan(black_box(&level_path), Some(&bounds)))
+        b.iter(|| lib::scan(black_box(&level_path), true, Some(&bounds)))
     });
     group.finish();
 }

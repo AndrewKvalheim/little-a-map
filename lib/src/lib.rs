@@ -33,6 +33,7 @@ struct IndexTemplate<'a> {
 
 pub fn scan(
     level_path: &PathBuf,
+    quiet: bool,
     region_bounds: Option<&Bounds>,
 ) -> Result<impl IntoIterator<Item = u32>> {
     let start_time = Instant::now();
@@ -48,12 +49,14 @@ pub fn scan(
         .chain(ids_by_player.into_iter().flat_map(|(_, ids)| ids))
         .collect();
 
-    println!(
-        "Scanned {} regions and {} players in {:.2}s",
-        regions_scanned,
-        players_scanned,
-        start_time.elapsed().as_secs_f32()
-    );
+    if !quiet {
+        println!(
+            "Scanned {} regions and {} players in {:.2}s",
+            regions_scanned,
+            players_scanned,
+            start_time.elapsed().as_secs_f32()
+        );
+    }
 
     Ok(ids)
 }
@@ -62,6 +65,7 @@ pub fn render(
     generator: &str,
     level_path: &PathBuf,
     output_path: &PathBuf,
+    quiet: bool,
     force: bool,
     level_info: &Level,
     ids: impl IntoIterator<Item = u32>,
@@ -234,16 +238,18 @@ pub fn render(
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
-    if banners_rendered == 0 && tiles_rendered == 0 {
-        println!("Already up-to-date");
-    } else {
-        println!(
-            "Rendered {} tiles from {} maps and {} banners in {:.2}s",
-            tiles_rendered,
-            maps_rendered,
-            banners_rendered,
-            start_time.elapsed().as_secs_f32()
-        );
+    if !quiet {
+        if banners_rendered == 0 && tiles_rendered == 0 {
+            println!("Already up-to-date");
+        } else {
+            println!(
+                "Rendered {} tiles from {} maps and {} banners in {:.2}s",
+                tiles_rendered,
+                maps_rendered,
+                banners_rendered,
+                start_time.elapsed().as_secs_f32()
+            );
+        }
     }
 
     Ok(())
@@ -253,6 +259,7 @@ pub fn run(
     generator: &str,
     level_path: &PathBuf,
     output_path: &PathBuf,
+    quiet: bool,
     force: bool,
 ) -> Result<()> {
     let level_info = level::read_level(&level_path)?;
@@ -260,12 +267,13 @@ pub fn run(
         panic!("Incompatible with game version {}", level_info.version);
     }
 
-    let map_ids = scan(&level_path, None)?;
+    let map_ids = scan(&level_path, quiet, None)?;
 
     render(
         &generator,
         &level_path,
         &output_path,
+        quiet,
         force,
         &level_info,
         map_ids,
