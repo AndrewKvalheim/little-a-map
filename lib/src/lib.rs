@@ -7,7 +7,7 @@ use anyhow::Result;
 use askama::Template;
 use banner::Banner;
 use filetime::{self, FileTime};
-use level::MapData;
+use level::{Bounds, Level, MapData};
 use map::Map;
 use rayon::prelude::*;
 use semver::VersionReq;
@@ -23,15 +23,6 @@ const COMPATIBLE_VERSIONS: &str = "~1.16.2";
 
 type OrderedMaps = BTreeSet<Map>;
 
-struct Stats {
-    banners: usize,
-    maps: usize,
-    players: usize,
-    regions: usize,
-    tiles: usize,
-    start: Instant,
-}
-
 #[derive(Template)]
 #[template(path = "index.html.j2")]
 struct IndexTemplate<'a> {
@@ -40,52 +31,56 @@ struct IndexTemplate<'a> {
     spawn_z: i32,
 }
 
-pub fn run(
+pub fn scan(
+    level_path: &PathBuf,
+    region_bounds: Option<&Bounds>,
+) -> Result<impl IntoIterator<Item = u32>> {
+    let start_time = Instant::now();
+    let mut players_scanned = 0;
+    let mut regions_scanned = 0;
+
+    let ids_by_player = level::scan_players(&level_path, &mut players_scanned)?;
+    let ids_by_region = level::scan_regions(&level_path, region_bounds, &mut regions_scanned)?;
+
+    let ids: HashSet<u32> = ids_by_region
+        .into_iter()
+        .flat_map(|(_, ids)| ids)
+        .chain(ids_by_player.into_iter().flat_map(|(_, ids)| ids))
+        .collect();
+
+    println!(
+        "Scanned {} regions and {} players in {:.2}s",
+        regions_scanned,
+        players_scanned,
+        start_time.elapsed().as_secs_f32()
+    );
+
+    Ok(ids)
+}
+
+pub fn render(
     generator: &str,
     level_path: &PathBuf,
     output_path: &PathBuf,
     force: bool,
+    level_info: &Level,
+    ids: impl IntoIterator<Item = u32>,
 ) -> Result<()> {
-    let mut stats = Stats {
-        banners: 0,
-        maps: 0,
-        players: 0,
-        regions: 0,
-        tiles: 0,
-        start: Instant::now(),
-    };
-
-    let level_info = level::read_level(&level_path)?;
-    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level_info.version) {
-        panic!("Incompatible with game version {}", level_info.version);
-    }
-
-    let ids_by_player = level::scan_players(&level_path, &mut stats.players)?;
-    let ids_by_region = level::scan_regions(&level_path, &mut stats.regions)?;
-    println!(
-        "Scanned {} regions and {} players in {:.2}s",
-        stats.regions,
-        stats.players,
-        stats.start.elapsed().as_secs_f32()
-    );
-    stats.start = Instant::now();
+    let start_time = Instant::now();
+    let mut banners_rendered = 0;
+    let mut maps_rendered = 0;
+    let mut tiles_rendered = 0;
 
     let mut banners: BTreeSet<Banner> = BTreeSet::new();
     let mut banners_modified: Option<FileTime> = None;
     let mut root_tiles: HashSet<Tile> = HashSet::new();
     let mut maps_by_tile: HashMap<Tile, OrderedMaps> = HashMap::new();
 
-    let ids: HashSet<u32> = ids_by_player
-        .into_iter()
-        .flat_map(|(_, ids)| ids)
-        .chain(ids_by_region.into_iter().flat_map(|(_, ids)| ids))
-        .collect();
-
     level::scan_maps(
         &level_path,
         ids,
         |map| {
-            stats.maps += 1;
+            maps_rendered += 1;
 
             root_tiles.insert(map.tile.root());
 
@@ -103,7 +98,7 @@ pub fn run(
         },
     )?;
 
-    fn render<'a>(
+    fn render_quadrant<'a>(
         tile_count: &mut usize,
         level_path: &PathBuf,
         output_path: &PathBuf,
@@ -142,7 +137,7 @@ pub fn run(
             }
         } else {
             tile.quadrants().iter().try_for_each(|t| {
-                render(
+                render_quadrant(
                     tile_count,
                     level_path,
                     output_path,
@@ -158,12 +153,13 @@ pub fn run(
 
         Ok(())
     };
-    stats.tiles += root_tiles
+
+    tiles_rendered += root_tiles
         .par_iter()
         .map(|t| -> Result<usize> {
             let mut tile_count = 0;
 
-            render(
+            render_quadrant(
                 &mut tile_count,
                 &level_path,
                 &output_path,
@@ -185,7 +181,7 @@ pub fn run(
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(true, |json_modified| json_modified < modified)
         {
-            stats.banners += banners.len();
+            banners_rendered += banners.len();
 
             let label_counts = {
                 let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -238,17 +234,42 @@ pub fn run(
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
-    if stats.banners == 0 && stats.tiles == 0 {
+    if banners_rendered == 0 && tiles_rendered == 0 {
         println!("Already up-to-date");
     } else {
         println!(
             "Rendered {} tiles from {} maps and {} banners in {:.2}s",
-            stats.tiles,
-            stats.maps,
-            stats.banners,
-            stats.start.elapsed().as_secs_f32()
+            tiles_rendered,
+            maps_rendered,
+            banners_rendered,
+            start_time.elapsed().as_secs_f32()
         );
     }
+
+    Ok(())
+}
+
+pub fn run(
+    generator: &str,
+    level_path: &PathBuf,
+    output_path: &PathBuf,
+    force: bool,
+) -> Result<()> {
+    let level_info = level::read_level(&level_path)?;
+    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level_info.version) {
+        panic!("Incompatible with game version {}", level_info.version);
+    }
+
+    let map_ids = scan(&level_path, None)?;
+
+    render(
+        &generator,
+        &level_path,
+        &output_path,
+        force,
+        &level_info,
+        map_ids,
+    )?;
 
     Ok(())
 }

@@ -15,6 +15,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::PathBuf;
 
+pub type Bounds = ((i32, i32), (i32, i32));
+
 pub type MapData = [i8; 128 * 128];
 
 const PALETTE_BASE: [[u8; 3]; 59] = [
@@ -443,6 +445,7 @@ pub fn scan_players(
 
 pub fn scan_regions(
     level_path: &PathBuf,
+    bounds: Option<&Bounds>,
     count_regions: &mut usize,
 ) -> Result<HashMap<(i32, i32), HashSet<u32>>> {
     glob(level_path.join("region/r.*.mca").to_str().unwrap())?
@@ -460,6 +463,13 @@ pub fn scan_regions(
             let z = parts.next().unwrap().parse::<i32>()?;
 
             Ok(((x, z), path))
+        })
+        .filter(|region| {
+            region.as_ref().map_or(true, |((x, z), _)| {
+                bounds.map_or(true, |((x0, z0), (x1, z1))| {
+                    x0 <= x && x <= x1 && z0 <= z && z <= z1
+                })
+            })
         })
         .inspect(|_| *count_regions += 1)
         .par_bridge()
