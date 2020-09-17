@@ -384,7 +384,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "little-a-map"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "criterion 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
