@@ -12,6 +12,7 @@ fastnbt = { git = "https://github.com/owengage/fastnbt.git", rev = "2c67c78" }
 filetime = "0.2.10"
 flate2 = "1.0.16"
 glob = "0.3.0"
+indicatif = { version = "0.15.0", features = ["rayon"] }
 lazy_static = "1.4.0"
 png = "0.16.7"
 rayon = "1.3"

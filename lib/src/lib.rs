@@ -2,11 +2,13 @@ pub mod banner;
 pub mod level;
 pub mod map;
 pub mod tile;
+mod utilities;
 
 use anyhow::Result;
 use askama::Template;
 use banner::Banner;
 use filetime::{self, FileTime};
+use indicatif::ProgressBar;
 use level::{Bounds, Level, MapData};
 use map::Map;
 use rayon::prelude::*;
@@ -18,6 +20,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 use tile::Tile;
+use utilities::progress_bar;
 
 const COMPATIBLE_VERSIONS: &str = "~1.16.2";
 
@@ -40,8 +43,10 @@ pub fn scan(
     let mut players_scanned = 0;
     let mut regions_scanned = 0;
 
-    let ids_by_player = level::scan_players(&level_path, &mut players_scanned)?;
-    let ids_by_region = level::scan_regions(&level_path, region_bounds, &mut regions_scanned)?;
+    let ids_by_player = level::scan_players(&level_path, quiet, &mut players_scanned)?;
+
+    let ids_by_region =
+        level::scan_regions(&level_path, quiet, region_bounds, &mut regions_scanned)?;
 
     let ids: HashSet<u32> = ids_by_region
         .into_iter()
@@ -51,7 +56,7 @@ pub fn scan(
 
     if !quiet {
         println!(
-            "Scanned {} regions and {} players in {:.2}s",
+            "Searched {} regions and {} players in {:.2}s",
             regions_scanned,
             players_scanned,
             start_time.elapsed().as_secs_f32()
@@ -71,7 +76,6 @@ pub fn render(
     ids: impl IntoIterator<Item = u32>,
 ) -> Result<()> {
     let start_time = Instant::now();
-    let mut banners_rendered = 0;
     let mut maps_rendered = 0;
     let mut tiles_rendered = 0;
 
@@ -107,6 +111,7 @@ pub fn render(
         level_path: &PathBuf,
         output_path: &PathBuf,
         force: bool,
+        bar: ProgressBar,
         maps_by_tile: &'a HashMap<Tile, OrderedMaps>,
         layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
         tile: &Tile,
@@ -139,6 +144,8 @@ pub fn render(
                     *tile_count += 1;
                 }
             }
+
+            bar.inc(1);
         } else {
             tile.quadrants().iter().try_for_each(|t| {
                 render_quadrant(
@@ -146,6 +153,7 @@ pub fn render(
                     level_path,
                     output_path,
                     force,
+                    bar.clone(),
                     maps_by_tile,
                     layers,
                     &t,
@@ -158,6 +166,11 @@ pub fn render(
         Ok(())
     };
 
+    let length = root_tiles.len();
+    let hidden = quiet || length < 3;
+
+    let bar = progress_bar(hidden, "Render", length * 4usize.pow(4), "tiles");
+
     tiles_rendered += root_tiles
         .par_iter()
         .map(|t| -> Result<usize> {
@@ -168,6 +181,7 @@ pub fn render(
                 &level_path,
                 &output_path,
                 force,
+                bar.clone(),
                 &maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
@@ -177,6 +191,8 @@ pub fn render(
         })
         .try_reduce(|| 0, |a, b| Ok(a + b))?;
 
+    bar.finish_and_clear();
+
     if let Some(modified) = banners_modified {
         let banners_path = output_path.join("banners.json");
 
@@ -185,8 +201,6 @@ pub fn render(
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(true, |json_modified| json_modified < modified)
         {
-            banners_rendered += banners.len();
-
             let label_counts = {
                 let mut counts: HashMap<&str, usize> = HashMap::new();
                 banners
@@ -239,14 +253,13 @@ pub fn render(
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if !quiet {
-        if banners_rendered == 0 && tiles_rendered == 0 {
+        if tiles_rendered == 0 {
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {} tiles from {} maps and {} banners in {:.2}s",
+                "Rendered {} tiles from {} map items in {:.2}s",
                 tiles_rendered,
                 maps_rendered,
-                banners_rendered,
                 start_time.elapsed().as_secs_f32()
             );
         }

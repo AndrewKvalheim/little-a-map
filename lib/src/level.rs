@@ -1,12 +1,14 @@
 use crate::banner::Banner;
 use crate::map::Map;
 use crate::tile::Tile;
+use crate::utilities::progress_bar;
 use anyhow::{anyhow, Result};
 use fastnbt::anvil;
 use fastnbt::nbt::{self, Error, Parser, Tag, Value};
 use filetime::FileTime;
 use flate2::read::GzDecoder;
 use glob::glob;
+use indicatif::ParallelProgressIterator;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
 use semver::Version;
@@ -368,9 +370,10 @@ where
 
 pub fn scan_players(
     level_path: &PathBuf,
+    quiet: bool,
     count_players: &mut usize,
 ) -> Result<HashMap<String, HashSet<u32>>> {
-    glob(
+    let players = glob(
         level_path
             .join("playerdata/????????-????-????-????-????????????.dat")
             .to_str()
@@ -383,72 +386,84 @@ pub fn scan_players(
 
         Ok((uuid, path))
     })
-    .inspect(|_| *count_players += 1)
-    .par_bridge()
-    .map(|player| {
-        let (uuid, path) = player?;
+    .collect::<Result<Vec<_>>>()?;
 
-        let mut map_ids: HashSet<u32> = HashSet::new();
+    let length = players.len();
+    let hidden = quiet || length < 10;
 
-        let mut parser = Parser::new(GzDecoder::new(File::open(&path)?));
+    *count_players += length;
 
-        let mut sections_scanned = 0;
+    players
+        .into_par_iter()
+        .progress_with(progress_bar(
+            hidden,
+            "Search for map items",
+            length,
+            "players",
+        ))
+        .map(|(uuid, path)| {
+            let mut map_ids: HashSet<u32> = HashSet::new();
 
-        'file: loop {
-            match parser.next().unwrap() {
-                Value::Compound(Some(n)) if n == "" => loop {
-                    match parser.next().unwrap() {
-                        Value::List(Some(n), _, _) if n == "EnderItems" || n == "Inventory" => {
-                            let mut list_depth = 1;
+            let mut parser = Parser::new(GzDecoder::new(File::open(&path)?));
 
-                            while list_depth > 0 {
-                                match parser.next().unwrap() {
-                                    Value::Compound(Some(n)) if n == "tag" => {
-                                        let mut cpd_depth = 1;
+            let mut sections_scanned = 0;
 
-                                        while cpd_depth > 0 {
-                                            match parser.next().unwrap() {
-                                                Value::Int(Some(n), v) if n == "map" => {
-                                                    map_ids.insert(v as u32);
+            'file: loop {
+                match parser.next().unwrap() {
+                    Value::Compound(Some(n)) if n == "" => loop {
+                        match parser.next().unwrap() {
+                            Value::List(Some(n), _, _) if n == "EnderItems" || n == "Inventory" => {
+                                let mut list_depth = 1;
+
+                                while list_depth > 0 {
+                                    match parser.next().unwrap() {
+                                        Value::Compound(Some(n)) if n == "tag" => {
+                                            let mut cpd_depth = 1;
+
+                                            while cpd_depth > 0 {
+                                                match parser.next().unwrap() {
+                                                    Value::Int(Some(n), v) if n == "map" => {
+                                                        map_ids.insert(v as u32);
+                                                    }
+                                                    Value::CompoundEnd => cpd_depth -= 1,
+                                                    Value::Compound(_) => cpd_depth += 1,
+                                                    _ => {}
                                                 }
-                                                Value::CompoundEnd => cpd_depth -= 1,
-                                                Value::Compound(_) => cpd_depth += 1,
-                                                _ => {}
                                             }
                                         }
+                                        Value::ListEnd => list_depth -= 1,
+                                        Value::List(_, _, _) => list_depth += 1,
+                                        _ => {}
                                     }
-                                    Value::ListEnd => list_depth -= 1,
-                                    Value::List(_, _, _) => list_depth += 1,
-                                    _ => {}
+                                }
+
+                                sections_scanned += 1;
+
+                                if sections_scanned == 2 {
+                                    break 'file;
                                 }
                             }
-
-                            sections_scanned += 1;
-
-                            if sections_scanned == 2 {
-                                break 'file;
-                            }
+                            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                            _ => {}
                         }
-                        Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
-                        _ => {}
-                    }
-                },
-                Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
-                _ => {}
+                    },
+                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                    _ => {}
+                }
             }
-        }
 
-        Ok((uuid, map_ids))
-    })
-    .collect()
+            Ok((uuid, map_ids))
+        })
+        .collect()
 }
 
 pub fn scan_regions(
     level_path: &PathBuf,
+    quiet: bool,
     bounds: Option<&Bounds>,
     count_regions: &mut usize,
 ) -> Result<HashMap<(i32, i32), HashSet<u32>>> {
-    glob(level_path.join("region/r.*.mca").to_str().unwrap())?
+    let regions = glob(level_path.join("region/r.*.mca").to_str().unwrap())?
         .map(|entry| -> Result<((i32, i32), PathBuf)> {
             let path = entry?;
 
@@ -471,11 +486,22 @@ pub fn scan_regions(
                 })
             })
         })
-        .inspect(|_| *count_regions += 1)
-        .par_bridge()
-        .map(|region| {
-            let (position, path) = region?;
+        .collect::<Result<Vec<_>>>()?;
 
+    let length = regions.len();
+    let hidden = quiet || length < 3;
+
+    *count_regions += length;
+
+    regions
+        .into_par_iter()
+        .progress_with(progress_bar(
+            hidden,
+            "Search for map items",
+            length,
+            "regions",
+        ))
+        .map(|(position, path)| {
             let mut map_ids: HashSet<u32> = HashSet::new();
 
             let on_chunk = |_x: usize, _z: usize, data: &Vec<u8>| {
