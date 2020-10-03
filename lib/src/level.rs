@@ -9,7 +9,7 @@ use filetime::FileTime;
 use flate2::read::GzDecoder;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use semver::Version;
 use serde::Deserialize;
@@ -84,18 +84,16 @@ const PALETTE_BASE: [[u8; 3]; 59] = [
 ];
 const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
 pub const TRNS: [u8; PALETTE_FACTORS.len()] = [0; PALETTE_FACTORS.len()];
-lazy_static! {
-    pub static ref PALETTE: Vec<u8> = {
-        PALETTE_BASE
-            .iter()
-            .flat_map(|rgb| {
-                PALETTE_FACTORS
-                    .iter()
-                    .flat_map(move |&f| rgb.iter().map(move |&v| (u32::from(v) * f / 255) as u8))
-            })
-            .collect()
-    };
-}
+pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
+    PALETTE_BASE
+        .iter()
+        .flat_map(|rgb| {
+            PALETTE_FACTORS
+                .iter()
+                .flat_map(move |&f| rgb.iter().map(move |&v| (u32::from(v) * f / 255) as u8))
+        })
+        .collect()
+});
 
 pub struct Level {
     pub spawn_x: i32,
