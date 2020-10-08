@@ -213,13 +213,10 @@ pub fn render(
             };
 
             let is_unique = |banner: &Banner| -> bool {
-                match banner.label.as_deref() {
-                    None => false,
-                    Some(l) => match label_counts.get(l) {
-                        Some(1) => true,
-                        _ => false,
-                    },
-                }
+                banner
+                    .label
+                    .as_deref()
+                    .map_or(false, |l| matches!(label_counts.get(l), Some(1)))
             };
 
             serde_json::to_writer(

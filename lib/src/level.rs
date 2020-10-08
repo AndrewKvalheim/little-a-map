@@ -128,17 +128,15 @@ pub fn read_level(level_path: &PathBuf) -> Result<Level> {
 
     'file: loop {
         match parser.next().map_err(err)? {
-            Value::Compound(Some(ref n)) if n == "" => loop {
+            Value::Compound(Some(n)) if n == "" => loop {
                 match parser.next().map_err(err)? {
-                    Value::Compound(Some(ref n)) if n == "Data" => loop {
+                    Value::Compound(Some(n)) if n == "Data" => loop {
                         match parser.next().map_err(err)? {
-                            Value::Int(Some(ref n), v) if n == "SpawnX" => x = Some(v),
-                            Value::Int(Some(ref n), v) if n == "SpawnZ" => z = Some(v),
-                            Value::Compound(Some(ref n)) if n == "Version" => 'version: loop {
+                            Value::Int(Some(n), v) if n == "SpawnX" => x = Some(v),
+                            Value::Int(Some(n), v) if n == "SpawnZ" => z = Some(v),
+                            Value::Compound(Some(n)) if n == "Version" => 'version: loop {
                                 match parser.next().map_err(err)? {
-                                    Value::String(Some(ref n), v) if n == "Name" => {
-                                        version = Some(v)
-                                    }
+                                    Value::String(Some(n), v) if n == "Name" => version = Some(v),
                                     Value::CompoundEnd => break 'version,
                                     _ => {}
                                 }
@@ -174,7 +172,7 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
 
     loop {
         match parser.next().map_err(err)? {
-            Value::ByteArray(Some(ref n), v) if n == "colors" => {
+            Value::ByteArray(Some(n), v) if n == "colors" => {
                 return Ok(v.as_slice().try_into()?);
             }
             _ => {}
@@ -213,26 +211,26 @@ where
                 Err(Error::EOF) => break 'file,
                 Err(e) => panic!(e),
                 Ok(value) => match value {
-                    Value::Compound(Some(ref n)) if n == "" => loop {
+                    Value::Compound(Some(n)) if n == "" => loop {
                         match parser.next() {
                             Err(Error::EOF) => break 'file,
                             Err(e) => panic!(e),
                             Ok(value) => match value {
-                                Value::Compound(Some(ref n)) if n == "data" => loop {
+                                Value::Compound(Some(n)) if n == "data" => loop {
                                     match parser.next() {
                                         Err(Error::EOF) => break 'file,
                                         Err(e) => panic!(e),
                                         Ok(value) => {
                                             match value {
                                                 // Short-circuit
-                                                Value::Int(Some(ref n), v) if n == "dimension" => {
+                                                Value::Int(Some(n), v) if n == "dimension" => {
                                                     if v == 0 {
                                                         overworld = Some(true);
                                                     } else {
                                                         break 'file;
                                                     }
                                                 }
-                                                Value::String(Some(ref n), v) if n == "dimension" => {
+                                                Value::String(Some(n), v) if n == "dimension" => {
                                                     if v == "minecraft:overworld" {
                                                         overworld = Some(true);
                                                     } else {
@@ -241,14 +239,14 @@ where
                                                 }
 
                                                 // Collect
-                                                Value::Byte(Some(ref n), v) if n == "scale" => scale = Some(v),
-                                                Value::Byte(Some(ref n), v) if n == "unlimitedTracking" => {
+                                                Value::Byte(Some(n), v) if n == "scale" => scale = Some(v),
+                                                Value::Byte(Some(n), v) if n == "unlimitedTracking" => {
                                                     unlimited_tracking = Some(v == 1)
                                                 }
-                                                Value::Int(Some(ref n), v) if n == "xCenter" => x = Some(v),
-                                                Value::Int(Some(ref n), v) if n == "zCenter" => z = Some(v),
+                                                Value::Int(Some(n), v) if n == "xCenter" => x = Some(v),
+                                                Value::Int(Some(n), v) if n == "zCenter" => z = Some(v),
 
-                                                Value::List(Some(ref n), Tag::Compound, _) if n == "banners" => {
+                                                Value::List(Some(n), Tag::Compound, _) if n == "banners" => {
                                                     'banners: loop {
                                                         match parser.next().map_err(err)? {
                                                             Value::Compound(None) => {
@@ -259,38 +257,19 @@ where
 
                                                                 'banner: loop {
                                                                     match parser.next().map_err(err)? {
-                                                                        Value::String(Some(ref n), v)
-                                                                            if n == "Color" =>
-                                                                        {
-                                                                            color = Some(v)
+                                                                        Value::String(Some(n), v) if n == "Color" => color = Some(v),
+                                                                        Value::String(Some(n), v) if n == "Name" => {
+                                                                            label = Some(serde_json::from_str::<NBTName>(&v)?.text)
                                                                         }
-                                                                        Value::String(Some(ref n), v)
-                                                                            if n == "Name" =>
-                                                                        {
-                                                                            let name: NBTName =
-                                                                                serde_json::from_str(&v)?;
-
-                                                                            label = Some(name.text)
-                                                                        }
-                                                                        Value::Compound(Some(ref n)) if n == "Pos" => {
+                                                                        Value::Compound(Some(n)) if n == "Pos" => {
                                                                             'position: loop {
                                                                                 match parser.next().map_err(err)? {
                                                                                     // Collect
-                                                                                    Value::Int(Some(ref n), v)
-                                                                                        if n == "X" =>
-                                                                                    {
-                                                                                        x = Some(v)
-                                                                                    }
-                                                                                    Value::Int(Some(ref n), v)
-                                                                                        if n == "Z" =>
-                                                                                    {
-                                                                                        z = Some(v)
-                                                                                    }
+                                                                                    Value::Int(Some(n), v) if n == "X" => x = Some(v),
+                                                                                    Value::Int(Some(n), v) if n == "Z" => z = Some(v),
 
                                                                                     // End
-                                                                                    Value::CompoundEnd => {
-                                                                                        break 'position
-                                                                                    }
+                                                                                    Value::CompoundEnd => break 'position,
 
                                                                                     // Skip
                                                                                     _ => {}
