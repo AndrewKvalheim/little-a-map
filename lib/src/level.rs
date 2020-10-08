@@ -14,6 +14,7 @@ use rayon::prelude::*;
 use semver::Version;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::fs::{self, File};
 use std::path::PathBuf;
 
@@ -171,14 +172,10 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
     let decoder = GzDecoder::new(map_file);
     let mut parser = Parser::new(decoder);
 
-    let mut pixels = [0; 128 * 128];
-
     loop {
         match parser.next().map_err(err)? {
             Value::ByteArray(Some(ref n), v) if n == "colors" => {
-                pixels.copy_from_slice(&v);
-
-                return Ok(pixels);
+                return Ok(v.as_slice().try_into()?);
             }
             _ => {}
         };
