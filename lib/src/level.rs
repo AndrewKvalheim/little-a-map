@@ -173,7 +173,9 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
     loop {
         match parser.next().map_err(err)? {
             Value::ByteArray(Some(n), v) if n == "colors" => {
-                return Ok(v.as_slice().try_into()?);
+                return v
+                    .try_into()
+                    .map_err(|_| anyhow!("unexpected data in map #{}", id));
             }
             _ => {}
         };
