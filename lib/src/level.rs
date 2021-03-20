@@ -128,7 +128,7 @@ pub fn read_level(level_path: &PathBuf) -> Result<Level> {
 
     'file: loop {
         match parser.next().map_err(err)? {
-            Value::Compound(Some(n)) if n == "" => loop {
+            Value::Compound(Some(n)) if n.is_empty() => loop {
                 match parser.next().map_err(err)? {
                     Value::Compound(Some(n)) if n == "Data" => loop {
                         match parser.next().map_err(err)? {
@@ -213,7 +213,7 @@ where
                 Err(Error::EOF) => break 'file,
                 Err(e) => panic!(e),
                 Ok(value) => match value {
-                    Value::Compound(Some(n)) if n == "" => loop {
+                    Value::Compound(Some(n)) if n.is_empty() => loop {
                         match parser.next() {
                             Err(Error::EOF) => break 'file,
                             Err(e) => panic!(e),
@@ -386,7 +386,7 @@ pub fn scan_players(
 
             'file: loop {
                 match parser.next().unwrap() {
-                    Value::Compound(Some(n)) if n == "" => loop {
+                    Value::Compound(Some(n)) if n.is_empty() => loop {
                         match parser.next().unwrap() {
                             Value::List(Some(n), _, _) if n == "EnderItems" || n == "Inventory" => {
                                 let mut list_depth = 1;
@@ -487,7 +487,7 @@ pub fn scan_regions(
 
                 'chunk: loop {
                     match parser.next().unwrap() {
-                        Value::Compound(Some(n)) if n == "" => loop {
+                        Value::Compound(Some(n)) if n.is_empty() => loop {
                             match parser.next().unwrap() {
                                 Value::Compound(Some(n)) if n == "Level" => loop {
                                     match parser.next().unwrap() {
