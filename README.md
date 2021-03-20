@@ -18,8 +18,8 @@ Render a statically servable slippy map from a game save:
 
 ```console
 $ little-a-map '/opt/mscs/worlds/example' '/var/www/html'
-Searched 3731 regions and 5 players in 11.13s
-Rendered 5698 tiles from 186 map items in 0.37s
+Searched 3731 regions and 5 players in 11.84s
+Rendered 5698 tiles from 186 map items in 0.41s
 ```
 
 ## Acknowledgements

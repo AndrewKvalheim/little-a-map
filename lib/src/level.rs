@@ -3,8 +3,7 @@ use crate::map::Map;
 use crate::tile::Tile;
 use crate::utilities::progress_bar;
 use anyhow::{anyhow, Result};
-use fastnbt::stream::{self, Parser};
-use fastnbt::Tag;
+use fastnbt::de::from_bytes;
 use filetime::FileTime;
 use flate2::read::GzDecoder;
 use glob::glob;
@@ -12,15 +11,18 @@ use indicatif::ParallelProgressIterator;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use semver::Version;
-use serde::Deserialize;
+use serde::de::{self, Unexpected, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::fmt;
 use std::fs::{self, File};
+use std::io::Read;
 use std::path::PathBuf;
 
 pub type Bounds = ((i32, i32), (i32, i32));
 
-pub type MapData = [i8; 128 * 128];
+pub type MapData = [u8; 128 * 128];
 
 const PALETTE_BASE: [[u8; 3]; 59] = [
     [0, 0, 0],
@@ -96,82 +98,172 @@ pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
         .collect()
 });
 
+#[derive(serde_query::Deserialize)]
 pub struct Level {
+    #[query(".Data.SpawnX")]
     pub spawn_x: i32,
+    #[query(".Data.SpawnZ")]
     pub spawn_z: i32,
+    #[query(".Data.Version.Name")]
     pub version: Version,
 }
 
 #[derive(Deserialize)]
-struct NBTName {
+#[serde(rename_all = "PascalCase")]
+struct NBTBanner {
+    color: String,
+    #[serde(default)]
+    #[serde(with = "serde_with::json::nested")]
+    name: Option<NBTBannerName>,
+    pos: NBTBannerPos,
+}
+
+#[derive(Deserialize)]
+struct NBTBannerName {
     text: String,
 }
 
-pub fn read_level(level_path: &PathBuf) -> Result<Level> {
-    let file = File::open(&level_path.join("level.dat"))?;
-    let decoder = GzDecoder::new(file);
-    let mut parser = Parser::new(decoder);
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTBannerPos {
+    x: i32,
+    z: i32,
+}
 
-    let mut version: Option<String> = None;
-    let mut x: Option<i32> = None;
-    let mut z: Option<i32> = None;
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTBlockEntity {
+    items: Option<Vec<NBTItem>>,
+}
 
-    'file: loop {
-        match parser.next()? {
-            stream::Value::Compound(Some(n)) if n.is_empty() => loop {
-                match parser.next()? {
-                    stream::Value::Compound(Some(n)) if n == "Data" => loop {
-                        match parser.next()? {
-                            stream::Value::Int(Some(n), v) if n == "SpawnX" => x = Some(v),
-                            stream::Value::Int(Some(n), v) if n == "SpawnZ" => z = Some(v),
-                            stream::Value::Compound(Some(n)) if n == "Version" => 'version: loop {
-                                match parser.next()? {
-                                    stream::Value::String(Some(n), v) if n == "Name" => {
-                                        version = Some(v)
-                                    }
-                                    stream::Value::CompoundEnd => break 'version,
-                                    _ => {}
-                                }
-                            },
-                            stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-                            _ => {}
-                        }
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTChunk {
+    level: NBTChunkLevel,
+}
 
-                        if x.is_some() && z.is_some() && version.is_some() {
-                            break 'file;
-                        }
-                    },
-                    stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-                    _ => {}
-                };
-            },
-            stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-            _ => {}
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTChunkLevel {
+    entities: Vec<NBTEntity>,
+    tile_entities: Vec<NBTBlockEntity>,
+}
+
+#[derive(PartialEq)]
+enum NBTDimension {
+    Nether,
+    Overworld,
+    End,
+}
+impl<'de> Deserialize<'de> for NBTDimension {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<NBTDimension, D::Error> {
+        struct NBTDimensionVisitor;
+
+        impl<'de> Visitor<'de> for NBTDimensionVisitor {
+            type Value = NBTDimension;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("integer or string")
+            }
+
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
+                match value {
+                    -1 => Ok(NBTDimension::Nether),
+                    0 => Ok(NBTDimension::Overworld),
+                    1 => Ok(NBTDimension::End),
+                    _ => Err(E::invalid_value(Unexpected::Signed(value), &self)),
+                }
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                match value {
+                    "minecraft:the_nether" => Ok(NBTDimension::Nether),
+                    "minecraft:overworld" => Ok(NBTDimension::Overworld),
+                    "minecraft:the_end" => Ok(NBTDimension::End),
+                    _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
+                }
+            }
         }
-    }
 
-    Ok(Level {
-        spawn_x: x.unwrap(),
-        spawn_z: z.unwrap(),
-        version: Version::parse(&version.unwrap())?,
-    })
+        deserializer.deserialize_any(NBTDimensionVisitor)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTEntity {
+    item: Option<NBTItem>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "id")]
+enum NBTItem {
+    #[serde(rename = "minecraft:filled_map")]
+    FilledMap { tag: NBTFilledMapTag },
+
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Deserialize)]
+struct NBTFilledMapTag {
+    map: u32,
+}
+
+#[derive(Deserialize)]
+struct NBTMap<'a> {
+    #[serde(borrow)]
+    data: NBTMapData<'a>,
+}
+
+#[derive(Deserialize)]
+struct NBTMapData<'a> {
+    #[serde(borrow)]
+    colors: &'a [u8],
+}
+
+#[derive(serde_query::Deserialize)]
+struct NBTMapMeta {
+    #[query(".data.banners")]
+    banners: Vec<NBTBanner>,
+    #[query(".data.dimension")]
+    dimension: NBTDimension,
+    #[query(".data.scale")]
+    scale: i8,
+    #[query(".data.unlimitedTracking")]
+    unlimited_tracking: bool,
+    #[query(".data.xCenter")]
+    x: i32,
+    #[query(".data.zCenter")]
+    z: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NBTPlayer {
+    inventory: Vec<NBTItem>,
+    ender_items: Vec<NBTItem>,
+}
+
+fn read_gz(path: &PathBuf) -> Result<Vec<u8>> {
+    let mut decoder = GzDecoder::new(File::open(&path)?);
+    let mut data = Vec::new();
+
+    decoder.read_to_end(&mut data)?;
+
+    Ok(data)
+}
+
+pub fn read_level(level_path: &PathBuf) -> Result<Level> {
+    Ok(from_bytes(&read_gz(&level_path.join("level.dat"))?)?)
 }
 
 pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
-    let map_file = File::open(&level_path.join(format!("data/map_{}.dat", id)))?;
-    let decoder = GzDecoder::new(map_file);
-    let mut parser = Parser::new(decoder);
-
-    loop {
-        match parser.next()? {
-            stream::Value::ByteArray(Some(n), v) if n == "colors" => {
-                return v
-                    .try_into()
-                    .map_err(|_| anyhow!("unexpected data in map #{}", id));
-            }
-            _ => {}
-        };
-    }
+    from_bytes::<NBTMap>(&read_gz(&level_path.join(format!("data/map_{}.dat", id)))?)?
+        .data
+        .colors
+        .try_into()
+        .map_err(|_| anyhow!("unexpected data in map #{}", id))
 }
 
 pub fn scan_maps<M, B>(
@@ -191,145 +283,24 @@ where
 
         let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
-        let mut parser = Parser::new(GzDecoder::new(File::open(&path)?));
+        let meta: NBTMapMeta = from_bytes(&read_gz(&path)?)?;
 
-        let mut scale: Option<i8> = None;
-        let mut x: Option<i32> = None;
-        let mut z: Option<i32> = None;
-        let mut overworld: Option<bool> = None;
-        let mut unlimited_tracking: Option<bool> = None;
-        let mut added_banners = false;
-
-        'file: loop {
-            match parser.next() {
-                Err(stream::Error::EOF) => break 'file,
-                Err(e) => panic!(e),
-                Ok(value) => match value {
-                    stream::Value::Compound(Some(n)) if n.is_empty() => loop {
-                        match parser.next() {
-                            Err(stream::Error::EOF) => break 'file,
-                            Err(e) => panic!(e),
-                            Ok(value) => match value {
-                                stream::Value::Compound(Some(n)) if n == "data" => loop {
-                                    match parser.next() {
-                                        Err(stream::Error::EOF) => break 'file,
-                                        Err(e) => panic!(e),
-                                        Ok(value) => {
-                                            match value {
-                                                // Short-circuit
-                                                stream::Value::Int(Some(n), v) if n == "dimension" => {
-                                                    if v == 0 {
-                                                        overworld = Some(true);
-                                                    } else {
-                                                        break 'file;
-                                                    }
-                                                }
-                                                stream::Value::String(Some(n), v) if n == "dimension" => {
-                                                    if v == "minecraft:overworld" {
-                                                        overworld = Some(true);
-                                                    } else {
-                                                        break 'file;
-                                                    }
-                                                }
-
-                                                // Collect
-                                                stream::Value::Byte(Some(n), v) if n == "scale" => scale = Some(v),
-                                                stream::Value::Byte(Some(n), v) if n == "unlimitedTracking" => {
-                                                    unlimited_tracking = Some(v == 1)
-                                                }
-                                                stream::Value::Int(Some(n), v) if n == "xCenter" => x = Some(v),
-                                                stream::Value::Int(Some(n), v) if n == "zCenter" => z = Some(v),
-
-                                                stream::Value::List(Some(n), Tag::Compound, _) if n == "banners" => {
-                                                    'banners: loop {
-                                                        match parser.next()? {
-                                                            stream::Value::Compound(None) => {
-                                                                let mut x: Option<i32> = None;
-                                                                let mut z: Option<i32> = None;
-                                                                let mut color: Option<String> = None;
-                                                                let mut label: Option<String> = None;
-
-                                                                'banner: loop {
-                                                                    match parser.next()? {
-                                                                        stream::Value::String(Some(n), v) if n == "Color" => color = Some(v),
-                                                                        stream::Value::String(Some(n), v) if n == "Name" => {
-                                                                            label = Some(serde_json::from_str::<NBTName>(&v)?.text)
-                                                                        }
-                                                                        stream::Value::Compound(Some(n)) if n == "Pos" => {
-                                                                            'position: loop {
-                                                                                match parser.next()? {
-                                                                                    // Collect
-                                                                                    stream::Value::Int(Some(n), v) if n == "X" => x = Some(v),
-                                                                                    stream::Value::Int(Some(n), v) if n == "Z" => z = Some(v),
-
-                                                                                    // End
-                                                                                    stream::Value::CompoundEnd => break 'position,
-
-                                                                                    // Skip
-                                                                                    _ => {}
-                                                                                }
-                                                                            }
-                                                                        }
-
-                                                                        // End
-                                                                        stream::Value::CompoundEnd => break 'banner,
-
-                                                                        // Skip
-                                                                        _ => {}
-                                                                    }
-                                                                }
-
-                                                                let color = color.unwrap();
-                                                                let x = x.unwrap();
-                                                                let z = z.unwrap();
-
-                                                                on_banner(modified, Banner { color, label, x, z });
-                                                            }
-
-                                                            // End
-                                                            stream::Value::ListEnd => break 'banners,
-
-                                                            // Skip
-                                                            _ => {}
-                                                        }
-                                                    }
-
-                                                    added_banners = true;
-                                                }
-
-                                                // Skip
-                                                stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-                                                _ => {}
-                                            };
-                                            if overworld.is_some()
-                                                && unlimited_tracking.is_some()
-                                                && scale.is_some()
-                                                && x.is_some()
-                                                && z.is_some()
-                                                && added_banners
-                                            {
-                                                break 'file;
-                                            }
-                                        }
-                                    }
-                                },
-                                stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-                                _ => {}
-                            }
-                        }
-                    },
-                    stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
-                    _ => {}
-                }
-            }
-        }
-
-        if let (Some(true), Some(false), Some(scale), Some(x), Some(z)) =
-            (overworld, unlimited_tracking, scale, x, z)
-        {
-            let tile = Tile::from_position(scale, x, z);
+        if !meta.unlimited_tracking && meta.dimension == NBTDimension::Overworld {
+            let tile = Tile::from_position(meta.scale, meta.x, meta.z);
 
             on_map(Map { id, modified, tile });
+
+            meta.banners.into_iter().for_each(|b| {
+                on_banner(
+                    modified,
+                    Banner {
+                        color: b.color,
+                        label: b.name.map(|n| n.text),
+                        x: b.pos.x,
+                        z: b.pos.z,
+                    },
+                );
+            })
         }
 
         Ok(())
@@ -370,61 +341,17 @@ pub fn search_players(
             "players",
         ))
         .map(|(uuid, path)| {
-            let mut map_ids: HashSet<u32> = HashSet::new();
+            let player: NBTPlayer = from_bytes(&read_gz(&path)?)?;
 
-            let mut parser = Parser::new(GzDecoder::new(File::open(&path)?));
-
-            let mut sections_scanned = 0;
-
-            'file: loop {
-                match parser.next().unwrap() {
-                    stream::Value::Compound(Some(n)) if n.is_empty() => loop {
-                        match parser.next().unwrap() {
-                            stream::Value::List(Some(n), _, _)
-                                if n == "EnderItems" || n == "Inventory" =>
-                            {
-                                let mut list_depth = 1;
-
-                                while list_depth > 0 {
-                                    match parser.next().unwrap() {
-                                        stream::Value::Compound(Some(n)) if n == "tag" => {
-                                            let mut cpd_depth = 1;
-
-                                            while cpd_depth > 0 {
-                                                match parser.next().unwrap() {
-                                                    stream::Value::Int(Some(n), v)
-                                                        if n == "map" =>
-                                                    {
-                                                        map_ids.insert(v as u32);
-                                                    }
-                                                    stream::Value::CompoundEnd => cpd_depth -= 1,
-                                                    stream::Value::Compound(_) => cpd_depth += 1,
-                                                    _ => {}
-                                                }
-                                            }
-                                        }
-                                        stream::Value::ListEnd => list_depth -= 1,
-                                        stream::Value::List(_, _, _) => list_depth += 1,
-                                        _ => {}
-                                    }
-                                }
-
-                                sections_scanned += 1;
-
-                                if sections_scanned == 2 {
-                                    break 'file;
-                                }
-                            }
-                            stream::Value::Compound(_) => {
-                                stream::skip_compound(&mut parser).unwrap()
-                            }
-                            _ => {}
-                        }
-                    },
-                    stream::Value::Compound(_) => stream::skip_compound(&mut parser).unwrap(),
-                    _ => {}
-                }
-            }
+            let map_ids = player
+                .inventory
+                .into_iter()
+                .chain(player.ender_items.into_iter())
+                .filter_map(|item| match item {
+                    NBTItem::FilledMap { tag } => Some(tag.map),
+                    _ => None,
+                })
+                .collect::<HashSet<_>>();
 
             Ok((uuid, map_ids))
         })
@@ -476,78 +403,25 @@ pub fn search_regions(
 
             fastanvil::Region::new(File::open(&path)?)
                 .for_each_chunk(|_x, _z, data| {
-                    let mut parser = Parser::new(data.as_slice());
+                    let chunk: NBTChunk = from_bytes(data).unwrap();
 
-                    let mut sections_scanned = 0;
-
-                    'chunk: loop {
-                        match parser.next().unwrap() {
-                            stream::Value::Compound(Some(n)) if n.is_empty() => loop {
-                                match parser.next().unwrap() {
-                                    stream::Value::Compound(Some(n)) if n == "Level" => loop {
-                                        match parser.next().unwrap() {
-                                            stream::Value::List(Some(n), _, _)
-                                                if n == "Entities" || n == "TileEntities" =>
-                                            {
-                                                let mut list_depth = 1;
-
-                                                while list_depth > 0 {
-                                                    match parser.next().unwrap() {
-                                                        stream::Value::Compound(Some(n))
-                                                            if n == "tag" =>
-                                                        {
-                                                            let mut cpd_depth = 1;
-
-                                                            while cpd_depth > 0 {
-                                                                match parser.next().unwrap() {
-                                                                    stream::Value::Int(
-                                                                        Some(n),
-                                                                        v,
-                                                                    ) if n == "map" => {
-                                                                        map_ids.insert(v as u32);
-                                                                    }
-                                                                    stream::Value::CompoundEnd => {
-                                                                        cpd_depth -= 1
-                                                                    }
-                                                                    stream::Value::Compound(_) => {
-                                                                        cpd_depth += 1
-                                                                    }
-                                                                    _ => {}
-                                                                }
-                                                            }
-                                                        }
-                                                        stream::Value::ListEnd => list_depth -= 1,
-                                                        stream::Value::List(_, _, _) => {
-                                                            list_depth += 1
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-
-                                                sections_scanned += 1;
-
-                                                if sections_scanned == 2 {
-                                                    break 'chunk;
-                                                }
-                                            }
-                                            stream::Value::Compound(_) => {
-                                                stream::skip_compound(&mut parser).unwrap()
-                                            }
-                                            _ => {}
-                                        }
-                                    },
-                                    stream::Value::Compound(_) => {
-                                        stream::skip_compound(&mut parser).unwrap()
-                                    }
-                                    _ => {}
-                                }
-                            },
-                            stream::Value::Compound(_) => {
-                                stream::skip_compound(&mut parser).unwrap()
-                            }
-                            _ => {}
+                    map_ids.extend(chunk.level.entities.into_iter().filter_map(|entity| {
+                        match entity.item {
+                            Some(NBTItem::FilledMap { tag }) => Some(tag.map),
+                            _ => None,
                         }
-                    }
+                    }));
+
+                    map_ids.extend(chunk.level.tile_entities.into_iter().flat_map(
+                        |block_entity| {
+                            block_entity.items.into_iter().flat_map(|items| {
+                                items.into_iter().filter_map(|item| match item {
+                                    NBTItem::FilledMap { tag } => Some(tag.map),
+                                    _ => None,
+                                })
+                            })
+                        },
+                    ));
                 })
                 .unwrap_or_default();
 
