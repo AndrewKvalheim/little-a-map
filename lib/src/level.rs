@@ -3,8 +3,8 @@ use crate::map::Map;
 use crate::tile::Tile;
 use crate::utilities::progress_bar;
 use anyhow::{anyhow, Result};
-use fastnbt::anvil;
-use fastnbt::nbt::{self, Error, Parser, Tag, Value};
+use fastnbt::stream::{self, Parser};
+use fastnbt::Tag;
 use filetime::FileTime;
 use flate2::read::GzDecoder;
 use glob::glob;
@@ -107,16 +107,6 @@ struct NBTName {
     text: String,
 }
 
-fn err(error: nbt::Error) -> anyhow::Error {
-    match error {
-        nbt::Error::EOF => anyhow!("nbt::Error::EOF"),
-        nbt::Error::InvalidName => anyhow!("nbt::Error::InvalidName"),
-        nbt::Error::InvalidTag(i) => anyhow!("nbt::Error::InvalidTag({})", i),
-        nbt::Error::IO(e) => anyhow!(e),
-        nbt::Error::ShortRead => anyhow!("nbt::Error::ShortRead"),
-    }
-}
-
 pub fn read_level(level_path: &PathBuf) -> Result<Level> {
     let file = File::open(&level_path.join("level.dat"))?;
     let decoder = GzDecoder::new(file);
@@ -127,21 +117,23 @@ pub fn read_level(level_path: &PathBuf) -> Result<Level> {
     let mut z: Option<i32> = None;
 
     'file: loop {
-        match parser.next().map_err(err)? {
-            Value::Compound(Some(n)) if n.is_empty() => loop {
-                match parser.next().map_err(err)? {
-                    Value::Compound(Some(n)) if n == "Data" => loop {
-                        match parser.next().map_err(err)? {
-                            Value::Int(Some(n), v) if n == "SpawnX" => x = Some(v),
-                            Value::Int(Some(n), v) if n == "SpawnZ" => z = Some(v),
-                            Value::Compound(Some(n)) if n == "Version" => 'version: loop {
-                                match parser.next().map_err(err)? {
-                                    Value::String(Some(n), v) if n == "Name" => version = Some(v),
-                                    Value::CompoundEnd => break 'version,
+        match parser.next()? {
+            stream::Value::Compound(Some(n)) if n.is_empty() => loop {
+                match parser.next()? {
+                    stream::Value::Compound(Some(n)) if n == "Data" => loop {
+                        match parser.next()? {
+                            stream::Value::Int(Some(n), v) if n == "SpawnX" => x = Some(v),
+                            stream::Value::Int(Some(n), v) if n == "SpawnZ" => z = Some(v),
+                            stream::Value::Compound(Some(n)) if n == "Version" => 'version: loop {
+                                match parser.next()? {
+                                    stream::Value::String(Some(n), v) if n == "Name" => {
+                                        version = Some(v)
+                                    }
+                                    stream::Value::CompoundEnd => break 'version,
                                     _ => {}
                                 }
                             },
-                            Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+                            stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
                             _ => {}
                         }
 
@@ -149,11 +141,11 @@ pub fn read_level(level_path: &PathBuf) -> Result<Level> {
                             break 'file;
                         }
                     },
-                    Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+                    stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
                     _ => {}
                 };
             },
-            Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+            stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
             _ => {}
         }
     }
@@ -171,8 +163,8 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
     let mut parser = Parser::new(decoder);
 
     loop {
-        match parser.next().map_err(err)? {
-            Value::ByteArray(Some(n), v) if n == "colors" => {
+        match parser.next()? {
+            stream::Value::ByteArray(Some(n), v) if n == "colors" => {
                 return v
                     .try_into()
                     .map_err(|_| anyhow!("unexpected data in map #{}", id));
@@ -210,29 +202,29 @@ where
 
         'file: loop {
             match parser.next() {
-                Err(Error::EOF) => break 'file,
+                Err(stream::Error::EOF) => break 'file,
                 Err(e) => panic!(e),
                 Ok(value) => match value {
-                    Value::Compound(Some(n)) if n.is_empty() => loop {
+                    stream::Value::Compound(Some(n)) if n.is_empty() => loop {
                         match parser.next() {
-                            Err(Error::EOF) => break 'file,
+                            Err(stream::Error::EOF) => break 'file,
                             Err(e) => panic!(e),
                             Ok(value) => match value {
-                                Value::Compound(Some(n)) if n == "data" => loop {
+                                stream::Value::Compound(Some(n)) if n == "data" => loop {
                                     match parser.next() {
-                                        Err(Error::EOF) => break 'file,
+                                        Err(stream::Error::EOF) => break 'file,
                                         Err(e) => panic!(e),
                                         Ok(value) => {
                                             match value {
                                                 // Short-circuit
-                                                Value::Int(Some(n), v) if n == "dimension" => {
+                                                stream::Value::Int(Some(n), v) if n == "dimension" => {
                                                     if v == 0 {
                                                         overworld = Some(true);
                                                     } else {
                                                         break 'file;
                                                     }
                                                 }
-                                                Value::String(Some(n), v) if n == "dimension" => {
+                                                stream::Value::String(Some(n), v) if n == "dimension" => {
                                                     if v == "minecraft:overworld" {
                                                         overworld = Some(true);
                                                     } else {
@@ -241,37 +233,37 @@ where
                                                 }
 
                                                 // Collect
-                                                Value::Byte(Some(n), v) if n == "scale" => scale = Some(v),
-                                                Value::Byte(Some(n), v) if n == "unlimitedTracking" => {
+                                                stream::Value::Byte(Some(n), v) if n == "scale" => scale = Some(v),
+                                                stream::Value::Byte(Some(n), v) if n == "unlimitedTracking" => {
                                                     unlimited_tracking = Some(v == 1)
                                                 }
-                                                Value::Int(Some(n), v) if n == "xCenter" => x = Some(v),
-                                                Value::Int(Some(n), v) if n == "zCenter" => z = Some(v),
+                                                stream::Value::Int(Some(n), v) if n == "xCenter" => x = Some(v),
+                                                stream::Value::Int(Some(n), v) if n == "zCenter" => z = Some(v),
 
-                                                Value::List(Some(n), Tag::Compound, _) if n == "banners" => {
+                                                stream::Value::List(Some(n), Tag::Compound, _) if n == "banners" => {
                                                     'banners: loop {
-                                                        match parser.next().map_err(err)? {
-                                                            Value::Compound(None) => {
+                                                        match parser.next()? {
+                                                            stream::Value::Compound(None) => {
                                                                 let mut x: Option<i32> = None;
                                                                 let mut z: Option<i32> = None;
                                                                 let mut color: Option<String> = None;
                                                                 let mut label: Option<String> = None;
 
                                                                 'banner: loop {
-                                                                    match parser.next().map_err(err)? {
-                                                                        Value::String(Some(n), v) if n == "Color" => color = Some(v),
-                                                                        Value::String(Some(n), v) if n == "Name" => {
+                                                                    match parser.next()? {
+                                                                        stream::Value::String(Some(n), v) if n == "Color" => color = Some(v),
+                                                                        stream::Value::String(Some(n), v) if n == "Name" => {
                                                                             label = Some(serde_json::from_str::<NBTName>(&v)?.text)
                                                                         }
-                                                                        Value::Compound(Some(n)) if n == "Pos" => {
+                                                                        stream::Value::Compound(Some(n)) if n == "Pos" => {
                                                                             'position: loop {
-                                                                                match parser.next().map_err(err)? {
+                                                                                match parser.next()? {
                                                                                     // Collect
-                                                                                    Value::Int(Some(n), v) if n == "X" => x = Some(v),
-                                                                                    Value::Int(Some(n), v) if n == "Z" => z = Some(v),
+                                                                                    stream::Value::Int(Some(n), v) if n == "X" => x = Some(v),
+                                                                                    stream::Value::Int(Some(n), v) if n == "Z" => z = Some(v),
 
                                                                                     // End
-                                                                                    Value::CompoundEnd => break 'position,
+                                                                                    stream::Value::CompoundEnd => break 'position,
 
                                                                                     // Skip
                                                                                     _ => {}
@@ -280,7 +272,7 @@ where
                                                                         }
 
                                                                         // End
-                                                                        Value::CompoundEnd => break 'banner,
+                                                                        stream::Value::CompoundEnd => break 'banner,
 
                                                                         // Skip
                                                                         _ => {}
@@ -295,7 +287,7 @@ where
                                                             }
 
                                                             // End
-                                                            Value::ListEnd => break 'banners,
+                                                            stream::Value::ListEnd => break 'banners,
 
                                                             // Skip
                                                             _ => {}
@@ -306,7 +298,7 @@ where
                                                 }
 
                                                 // Skip
-                                                Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+                                                stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
                                                 _ => {}
                                             };
                                             if overworld.is_some()
@@ -321,12 +313,12 @@ where
                                         }
                                     }
                                 },
-                                Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+                                stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
                                 _ => {}
                             }
                         }
                     },
-                    Value::Compound(_) => nbt::skip_compound(&mut parser).map_err(err)?,
+                    stream::Value::Compound(_) => stream::skip_compound(&mut parser)?,
                     _ => {}
                 }
             }
@@ -386,29 +378,33 @@ pub fn scan_players(
 
             'file: loop {
                 match parser.next().unwrap() {
-                    Value::Compound(Some(n)) if n.is_empty() => loop {
+                    stream::Value::Compound(Some(n)) if n.is_empty() => loop {
                         match parser.next().unwrap() {
-                            Value::List(Some(n), _, _) if n == "EnderItems" || n == "Inventory" => {
+                            stream::Value::List(Some(n), _, _)
+                                if n == "EnderItems" || n == "Inventory" =>
+                            {
                                 let mut list_depth = 1;
 
                                 while list_depth > 0 {
                                     match parser.next().unwrap() {
-                                        Value::Compound(Some(n)) if n == "tag" => {
+                                        stream::Value::Compound(Some(n)) if n == "tag" => {
                                             let mut cpd_depth = 1;
 
                                             while cpd_depth > 0 {
                                                 match parser.next().unwrap() {
-                                                    Value::Int(Some(n), v) if n == "map" => {
+                                                    stream::Value::Int(Some(n), v)
+                                                        if n == "map" =>
+                                                    {
                                                         map_ids.insert(v as u32);
                                                     }
-                                                    Value::CompoundEnd => cpd_depth -= 1,
-                                                    Value::Compound(_) => cpd_depth += 1,
+                                                    stream::Value::CompoundEnd => cpd_depth -= 1,
+                                                    stream::Value::Compound(_) => cpd_depth += 1,
                                                     _ => {}
                                                 }
                                             }
                                         }
-                                        Value::ListEnd => list_depth -= 1,
-                                        Value::List(_, _, _) => list_depth += 1,
+                                        stream::Value::ListEnd => list_depth -= 1,
+                                        stream::Value::List(_, _, _) => list_depth += 1,
                                         _ => {}
                                     }
                                 }
@@ -419,11 +415,13 @@ pub fn scan_players(
                                     break 'file;
                                 }
                             }
-                            Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                            stream::Value::Compound(_) => {
+                                stream::skip_compound(&mut parser).unwrap()
+                            }
                             _ => {}
                         }
                     },
-                    Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                    stream::Value::Compound(_) => stream::skip_compound(&mut parser).unwrap(),
                     _ => {}
                 }
             }
@@ -481,45 +479,47 @@ pub fn scan_regions(
             let mut map_ids: HashSet<u32> = HashSet::new();
 
             let on_chunk = |_x: usize, _z: usize, data: &Vec<u8>| {
-                let mut parser = nbt::Parser::new(data.as_slice());
+                let mut parser = Parser::new(data.as_slice());
 
                 let mut sections_scanned = 0;
 
                 'chunk: loop {
                     match parser.next().unwrap() {
-                        Value::Compound(Some(n)) if n.is_empty() => loop {
+                        stream::Value::Compound(Some(n)) if n.is_empty() => loop {
                             match parser.next().unwrap() {
-                                Value::Compound(Some(n)) if n == "Level" => loop {
+                                stream::Value::Compound(Some(n)) if n == "Level" => loop {
                                     match parser.next().unwrap() {
-                                        Value::List(Some(n), _, _)
+                                        stream::Value::List(Some(n), _, _)
                                             if n == "Entities" || n == "TileEntities" =>
                                         {
                                             let mut list_depth = 1;
 
                                             while list_depth > 0 {
                                                 match parser.next().unwrap() {
-                                                    Value::Compound(Some(n)) if n == "tag" => {
+                                                    stream::Value::Compound(Some(n))
+                                                        if n == "tag" =>
+                                                    {
                                                         let mut cpd_depth = 1;
 
                                                         while cpd_depth > 0 {
                                                             match parser.next().unwrap() {
-                                                                Value::Int(Some(n), v)
+                                                                stream::Value::Int(Some(n), v)
                                                                     if n == "map" =>
                                                                 {
                                                                     map_ids.insert(v as u32);
                                                                 }
-                                                                Value::CompoundEnd => {
+                                                                stream::Value::CompoundEnd => {
                                                                     cpd_depth -= 1
                                                                 }
-                                                                Value::Compound(_) => {
+                                                                stream::Value::Compound(_) => {
                                                                     cpd_depth += 1
                                                                 }
                                                                 _ => {}
                                                             }
                                                         }
                                                     }
-                                                    Value::ListEnd => list_depth -= 1,
-                                                    Value::List(_, _, _) => list_depth += 1,
+                                                    stream::Value::ListEnd => list_depth -= 1,
+                                                    stream::Value::List(_, _, _) => list_depth += 1,
                                                     _ => {}
                                                 }
                                             }
@@ -530,23 +530,25 @@ pub fn scan_regions(
                                                 break 'chunk;
                                             }
                                         }
-                                        Value::Compound(_) => {
-                                            nbt::skip_compound(&mut parser).unwrap()
+                                        stream::Value::Compound(_) => {
+                                            stream::skip_compound(&mut parser).unwrap()
                                         }
                                         _ => {}
                                     }
                                 },
-                                Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                                stream::Value::Compound(_) => {
+                                    stream::skip_compound(&mut parser).unwrap()
+                                }
                                 _ => {}
                             }
                         },
-                        Value::Compound(_) => nbt::skip_compound(&mut parser).unwrap(),
+                        stream::Value::Compound(_) => stream::skip_compound(&mut parser).unwrap(),
                         _ => {}
                     }
                 }
             };
 
-            anvil::Region::new(File::open(&path)?)
+            fastanvil::Region::new(File::open(&path)?)
                 .for_each_chunk(on_chunk)
                 .unwrap_or_default();
 
