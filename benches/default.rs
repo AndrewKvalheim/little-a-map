@@ -1,9 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use glob::glob;
+use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
 
-fn all_map_ids(level_path: &PathBuf) -> impl IntoIterator<Item = u32> + Clone {
+fn all_map_ids(level_path: &PathBuf) -> HashSet<u32> {
     glob(level_path.join("data/map_*.dat").to_str().unwrap())
         .unwrap()
         .map(|entry| {
@@ -19,7 +20,7 @@ fn all_map_ids(level_path: &PathBuf) -> impl IntoIterator<Item = u32> + Clone {
                 .parse::<u32>()
                 .unwrap()
         })
-        .collect::<Vec<u32>>()
+        .collect()
 }
 
 pub fn bench_render(c: &mut Criterion) {

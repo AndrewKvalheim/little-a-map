@@ -13,7 +13,7 @@ use rayon::prelude::*;
 use semver::Version;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::convert::TryInto;
 use std::fmt;
 use std::fs::{self, File};
@@ -106,6 +106,14 @@ pub struct Level {
     pub spawn_z: i32,
     #[query(".Data.Version.Name")]
     pub version: Version,
+}
+
+#[derive(Default)]
+pub struct MapScan {
+    pub banners: BTreeSet<Banner>,
+    pub banners_modified: Option<FileTime>,
+    pub maps_by_tile: HashMap<Tile, BTreeSet<Map>>,
+    pub root_tiles: HashSet<Tile>,
 }
 
 #[derive(Deserialize)]
@@ -266,45 +274,56 @@ pub fn load_map(level_path: &PathBuf, id: u32) -> Result<MapData> {
         .map_err(|_| anyhow!("unexpected data in map #{}", id))
 }
 
-pub fn scan_maps<M, B>(
-    level_path: &PathBuf,
-    ids: impl IntoIterator<Item = u32>,
-    mut on_map: M,
-    mut on_banner: B,
-) -> Result<()>
-where
-    B: FnMut(FileTime, Banner),
-    M: FnMut(Map),
-{
+pub fn scan_maps(level_path: &PathBuf, ids: HashSet<u32>) -> Result<MapScan> {
     let data_path = level_path.join("data");
 
-    ids.into_iter().try_for_each(|id| {
-        let path = data_path.join(format!("map_{}.dat", id));
+    Ok(ids
+        .into_par_iter()
+        .map(move |id| -> Result<MapScan> {
+            let path = data_path.join(format!("map_{}.dat", id));
+            let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
+            let meta: NBTMapMeta = from_bytes(&read_gz(&path)?)?;
+            let mut map_scan = MapScan::default();
 
-        let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
+            if !meta.unlimited_tracking && meta.dimension == NBTDimension::Overworld {
+                let tile = Tile::from_position(meta.scale, meta.x, meta.z);
 
-        let meta: NBTMapMeta = from_bytes(&read_gz(&path)?)?;
+                map_scan.root_tiles.insert(tile.root());
 
-        if !meta.unlimited_tracking && meta.dimension == NBTDimension::Overworld {
-            let tile = Tile::from_position(meta.scale, meta.x, meta.z);
+                if !meta.banners.is_empty() {
+                    map_scan.banners_modified.replace(modified);
+                }
 
-            on_map(Map { id, modified, tile });
-
-            meta.banners.into_iter().for_each(|b| {
-                on_banner(
-                    modified,
-                    Banner {
+                map_scan
+                    .banners
+                    .extend(meta.banners.into_iter().map(|b| Banner {
                         color: b.color,
                         label: b.name.map(|n| n.text),
                         x: b.pos.x,
                         z: b.pos.z,
-                    },
-                );
-            })
-        }
+                    }));
 
-        Ok(())
-    })
+                map_scan
+                    .maps_by_tile
+                    .entry(tile.clone())
+                    .or_insert_with(BTreeSet::new)
+                    .insert(Map { id, modified, tile });
+            }
+
+            Ok(map_scan)
+        })
+        .try_reduce(MapScan::default, |mut map_scan, other| {
+            if let Some(b) = other.banners_modified {
+                if map_scan.banners_modified.map_or(true, |a| a < b) {
+                    map_scan.banners_modified.replace(b);
+                }
+            }
+            map_scan.root_tiles.extend(other.root_tiles);
+            map_scan.maps_by_tile.extend(other.maps_by_tile);
+            map_scan.banners.extend(other.banners);
+
+            Ok(map_scan)
+        })?)
 }
 
 pub fn search_players(

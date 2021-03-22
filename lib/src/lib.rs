@@ -24,8 +24,6 @@ use utilities::progress_bar;
 
 const COMPATIBLE_VERSIONS: &str = "~1.16.2";
 
-type OrderedMaps = BTreeSet<Map>;
-
 #[derive(Template)]
 #[template(path = "index.html.j2")]
 struct IndexTemplate<'a> {
@@ -38,7 +36,7 @@ pub fn search(
     level_path: &PathBuf,
     quiet: bool,
     region_bounds: Option<&Bounds>,
-) -> Result<impl IntoIterator<Item = u32>> {
+) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
     let mut players_searched = 0;
     let mut regions_searched = 0;
@@ -73,38 +71,14 @@ pub fn render(
     quiet: bool,
     force: bool,
     level_info: &Level,
-    ids: impl IntoIterator<Item = u32>,
+    ids: HashSet<u32>,
 ) -> Result<()> {
     let start_time = Instant::now();
     let mut maps_rendered = 0;
     let mut tiles_rendered = 0;
 
-    let mut banners: BTreeSet<Banner> = BTreeSet::new();
-    let mut banners_modified: Option<FileTime> = None;
-    let mut root_tiles: HashSet<Tile> = HashSet::new();
-    let mut maps_by_tile: HashMap<Tile, OrderedMaps> = HashMap::new();
-
-    level::scan_maps(
-        &level_path,
-        ids,
-        |map| {
-            maps_rendered += 1;
-
-            root_tiles.insert(map.tile.root());
-
-            maps_by_tile
-                .entry(map.tile.clone())
-                .or_insert_with(BTreeSet::new)
-                .insert(map);
-        },
-        |modified, banner| {
-            banners.insert(banner);
-
-            if banners_modified.map_or(true, |m| m < modified) {
-                banners_modified.replace(modified);
-            }
-        },
-    )?;
+    let map_scan = level::scan_maps(&level_path, ids)?;
+    maps_rendered += map_scan.maps_by_tile.len();
 
     fn render_quadrant<'a>(
         tile_count: &mut usize,
@@ -112,7 +86,7 @@ pub fn render(
         output_path: &PathBuf,
         force: bool,
         bar: ProgressBar,
-        maps_by_tile: &'a HashMap<Tile, OrderedMaps>,
+        maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
         layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
         tile: &Tile,
     ) -> Result<()> {
@@ -166,12 +140,13 @@ pub fn render(
         Ok(())
     };
 
-    let length = root_tiles.len();
+    let length = map_scan.root_tiles.len();
     let hidden = quiet || length < 3;
 
     let bar = progress_bar(hidden, "Render", length * 4usize.pow(4), "tiles");
 
-    tiles_rendered += root_tiles
+    tiles_rendered += map_scan
+        .root_tiles
         .par_iter()
         .map(|t| -> Result<usize> {
             let mut tile_count = 0;
@@ -182,7 +157,7 @@ pub fn render(
                 &output_path,
                 force,
                 bar.clone(),
-                &maps_by_tile,
+                &map_scan.maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
             )?;
@@ -193,7 +168,7 @@ pub fn render(
 
     bar.finish_and_clear();
 
-    if let Some(modified) = banners_modified {
+    if let Some(modified) = map_scan.banners_modified {
         let banners_path = output_path.join("banners.json");
 
         if force
@@ -203,7 +178,8 @@ pub fn render(
         {
             let label_counts = {
                 let mut counts: HashMap<&str, usize> = HashMap::new();
-                banners
+                map_scan
+                    .banners
                     .iter()
                     .filter_map(|b| b.label.as_ref())
                     .for_each(|label| {
@@ -223,7 +199,7 @@ pub fn render(
                 &File::create(&banners_path)?,
                 &json!({
                     "type": "FeatureCollection",
-                    "features": banners.iter().map(|banner| json!({
+                    "features": map_scan.banners.iter().map(|banner| json!({
                         "type": "Feature",
                         "geometry": {
                             "type": "Point",
