@@ -51,7 +51,7 @@ pub fn bench_render(c: &mut Criterion) {
     group.finish();
 }
 
-pub fn bench_scan(c: &mut Criterion) {
+pub fn bench_search(c: &mut Criterion) {
     let level_path = PathBuf::from(env!("BENCH_LEVEL_PATH"));
     let bounds = (
         (
@@ -66,11 +66,11 @@ pub fn bench_scan(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("little-a-map");
     group.sample_size(20);
-    group.bench_function("scan", |b| {
-        b.iter(|| lib::scan(black_box(&level_path), true, Some(&bounds)))
+    group.bench_function("search", |b| {
+        b.iter(|| lib::search(black_box(&level_path), true, Some(&bounds)))
     });
     group.finish();
 }
 
-criterion_group!(benches, bench_scan, bench_render);
+criterion_group!(benches, bench_search, bench_render);
 criterion_main!(benches);

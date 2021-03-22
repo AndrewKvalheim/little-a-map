@@ -34,19 +34,19 @@ struct IndexTemplate<'a> {
     spawn_z: i32,
 }
 
-pub fn scan(
+pub fn search(
     level_path: &PathBuf,
     quiet: bool,
     region_bounds: Option<&Bounds>,
 ) -> Result<impl IntoIterator<Item = u32>> {
     let start_time = Instant::now();
-    let mut players_scanned = 0;
-    let mut regions_scanned = 0;
+    let mut players_searched = 0;
+    let mut regions_searched = 0;
 
-    let ids_by_player = level::scan_players(&level_path, quiet, &mut players_scanned)?;
+    let ids_by_player = level::search_players(&level_path, quiet, &mut players_searched)?;
 
     let ids_by_region =
-        level::scan_regions(&level_path, quiet, region_bounds, &mut regions_scanned)?;
+        level::search_regions(&level_path, quiet, region_bounds, &mut regions_searched)?;
 
     let ids: HashSet<u32> = ids_by_region
         .into_iter()
@@ -57,8 +57,8 @@ pub fn scan(
     if !quiet {
         println!(
             "Searched {} regions and {} players in {:.2}s",
-            regions_scanned,
-            players_scanned,
+            regions_searched,
+            players_searched,
             start_time.elapsed().as_secs_f32()
         );
     }
@@ -277,7 +277,7 @@ pub fn run(
         panic!("Incompatible with game version {}", level_info.version);
     }
 
-    let map_ids = scan(&level_path, quiet, None)?;
+    let map_ids = search(&level_path, quiet, None)?;
 
     render(
         &generator,

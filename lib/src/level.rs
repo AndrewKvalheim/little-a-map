@@ -336,7 +336,7 @@ where
     })
 }
 
-pub fn scan_players(
+pub fn search_players(
     level_path: &PathBuf,
     quiet: bool,
     count_players: &mut usize,
@@ -431,7 +431,7 @@ pub fn scan_players(
         .collect()
 }
 
-pub fn scan_regions(
+pub fn search_regions(
     level_path: &PathBuf,
     quiet: bool,
     bounds: Option<&Bounds>,
@@ -464,92 +464,91 @@ pub fn scan_regions(
 
     let length = regions.len();
     let hidden = quiet || length < 3;
+    let message = "Search for map items";
 
     *count_regions += length;
 
     regions
         .into_par_iter()
-        .progress_with(progress_bar(
-            hidden,
-            "Search for map items",
-            length,
-            "regions",
-        ))
+        .progress_with(progress_bar(hidden, message, length, "regions"))
         .map(|(position, path)| {
             let mut map_ids: HashSet<u32> = HashSet::new();
 
-            let on_chunk = |_x: usize, _z: usize, data: &Vec<u8>| {
-                let mut parser = Parser::new(data.as_slice());
+            fastanvil::Region::new(File::open(&path)?)
+                .for_each_chunk(|_x, _z, data| {
+                    let mut parser = Parser::new(data.as_slice());
 
-                let mut sections_scanned = 0;
+                    let mut sections_scanned = 0;
 
-                'chunk: loop {
-                    match parser.next().unwrap() {
-                        stream::Value::Compound(Some(n)) if n.is_empty() => loop {
-                            match parser.next().unwrap() {
-                                stream::Value::Compound(Some(n)) if n == "Level" => loop {
-                                    match parser.next().unwrap() {
-                                        stream::Value::List(Some(n), _, _)
-                                            if n == "Entities" || n == "TileEntities" =>
-                                        {
-                                            let mut list_depth = 1;
+                    'chunk: loop {
+                        match parser.next().unwrap() {
+                            stream::Value::Compound(Some(n)) if n.is_empty() => loop {
+                                match parser.next().unwrap() {
+                                    stream::Value::Compound(Some(n)) if n == "Level" => loop {
+                                        match parser.next().unwrap() {
+                                            stream::Value::List(Some(n), _, _)
+                                                if n == "Entities" || n == "TileEntities" =>
+                                            {
+                                                let mut list_depth = 1;
 
-                                            while list_depth > 0 {
-                                                match parser.next().unwrap() {
-                                                    stream::Value::Compound(Some(n))
-                                                        if n == "tag" =>
-                                                    {
-                                                        let mut cpd_depth = 1;
+                                                while list_depth > 0 {
+                                                    match parser.next().unwrap() {
+                                                        stream::Value::Compound(Some(n))
+                                                            if n == "tag" =>
+                                                        {
+                                                            let mut cpd_depth = 1;
 
-                                                        while cpd_depth > 0 {
-                                                            match parser.next().unwrap() {
-                                                                stream::Value::Int(Some(n), v)
-                                                                    if n == "map" =>
-                                                                {
-                                                                    map_ids.insert(v as u32);
+                                                            while cpd_depth > 0 {
+                                                                match parser.next().unwrap() {
+                                                                    stream::Value::Int(
+                                                                        Some(n),
+                                                                        v,
+                                                                    ) if n == "map" => {
+                                                                        map_ids.insert(v as u32);
+                                                                    }
+                                                                    stream::Value::CompoundEnd => {
+                                                                        cpd_depth -= 1
+                                                                    }
+                                                                    stream::Value::Compound(_) => {
+                                                                        cpd_depth += 1
+                                                                    }
+                                                                    _ => {}
                                                                 }
-                                                                stream::Value::CompoundEnd => {
-                                                                    cpd_depth -= 1
-                                                                }
-                                                                stream::Value::Compound(_) => {
-                                                                    cpd_depth += 1
-                                                                }
-                                                                _ => {}
                                                             }
                                                         }
+                                                        stream::Value::ListEnd => list_depth -= 1,
+                                                        stream::Value::List(_, _, _) => {
+                                                            list_depth += 1
+                                                        }
+                                                        _ => {}
                                                     }
-                                                    stream::Value::ListEnd => list_depth -= 1,
-                                                    stream::Value::List(_, _, _) => list_depth += 1,
-                                                    _ => {}
+                                                }
+
+                                                sections_scanned += 1;
+
+                                                if sections_scanned == 2 {
+                                                    break 'chunk;
                                                 }
                                             }
-
-                                            sections_scanned += 1;
-
-                                            if sections_scanned == 2 {
-                                                break 'chunk;
+                                            stream::Value::Compound(_) => {
+                                                stream::skip_compound(&mut parser).unwrap()
                                             }
+                                            _ => {}
                                         }
-                                        stream::Value::Compound(_) => {
-                                            stream::skip_compound(&mut parser).unwrap()
-                                        }
-                                        _ => {}
+                                    },
+                                    stream::Value::Compound(_) => {
+                                        stream::skip_compound(&mut parser).unwrap()
                                     }
-                                },
-                                stream::Value::Compound(_) => {
-                                    stream::skip_compound(&mut parser).unwrap()
+                                    _ => {}
                                 }
-                                _ => {}
+                            },
+                            stream::Value::Compound(_) => {
+                                stream::skip_compound(&mut parser).unwrap()
                             }
-                        },
-                        stream::Value::Compound(_) => stream::skip_compound(&mut parser).unwrap(),
-                        _ => {}
+                            _ => {}
+                        }
                     }
-                }
-            };
-
-            fastanvil::Region::new(File::open(&path)?)
-                .for_each_chunk(on_chunk)
+                })
                 .unwrap_or_default();
 
             Ok((position, map_ids))
