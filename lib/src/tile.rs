@@ -21,7 +21,7 @@ fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, da
         let j = i as i32 / factor;
         let k = i as i32 / 128;
 
-        let map_pixel = data[(a + j + b * k - (k - j / 128) * 128) as usize] as u8;
+        let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128) as usize];
 
         if map_pixel >= 4 {
             *dirty = true;
@@ -102,8 +102,8 @@ impl Tile {
         let mut dirty = false;
         let ids = maps
             .into_iter()
-            .map(|&(map, data)| {
-                draw_behind(self, &mut dirty, &mut canvas, map, &data);
+            .map(|(map, image)| {
+                draw_behind(self, &mut dirty, &mut canvas, map, &image);
 
                 map.id
             })

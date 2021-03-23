@@ -1,3 +1,6 @@
+// Workaround for https://github.com/rust-lang/rust/issues/55779
+extern crate serde;
+
 pub mod banner;
 pub mod level;
 pub mod map;
@@ -77,8 +80,8 @@ pub fn render(
     let mut maps_rendered = 0;
     let mut tiles_rendered = 0;
 
-    let map_scan = level::scan_maps(&level_path, ids)?;
-    maps_rendered += map_scan.maps_by_tile.len();
+    let results = level::scan_maps(&level_path, ids)?;
+    maps_rendered += results.maps_by_tile.len();
 
     fn render_quadrant<'a>(
         tile_count: &mut usize,
@@ -140,12 +143,12 @@ pub fn render(
         Ok(())
     };
 
-    let length = map_scan.root_tiles.len();
+    let length = results.root_tiles.len();
     let hidden = quiet || length < 3;
 
     let bar = progress_bar(hidden, "Render", length * 4usize.pow(4), "tiles");
 
-    tiles_rendered += map_scan
+    tiles_rendered += results
         .root_tiles
         .par_iter()
         .map(|t| -> Result<usize> {
@@ -157,7 +160,7 @@ pub fn render(
                 &output_path,
                 force,
                 bar.clone(),
-                &map_scan.maps_by_tile,
+                &results.maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
             )?;
@@ -168,7 +171,7 @@ pub fn render(
 
     bar.finish_and_clear();
 
-    if let Some(modified) = map_scan.banners_modified {
+    if let Some(modified) = results.banners_modified {
         let banners_path = output_path.join("banners.json");
 
         if force
@@ -178,7 +181,7 @@ pub fn render(
         {
             let label_counts = {
                 let mut counts: HashMap<&str, usize> = HashMap::new();
-                map_scan
+                results
                     .banners
                     .iter()
                     .filter_map(|b| b.label.as_ref())
@@ -199,7 +202,7 @@ pub fn render(
                 &File::create(&banners_path)?,
                 &json!({
                     "type": "FeatureCollection",
-                    "features": map_scan.banners.iter().map(|banner| json!({
+                    "features": results.banners.iter().map(|banner| json!({
                         "type": "Feature",
                         "geometry": {
                             "type": "Point",
