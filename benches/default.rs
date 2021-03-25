@@ -2,9 +2,9 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use glob::glob;
 use std::collections::HashSet;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-fn all_map_ids(level_path: &PathBuf) -> HashSet<u32> {
+fn all_map_ids(level_path: &Path) -> HashSet<u32> {
     glob(level_path.join("data/map_*.dat").to_str().unwrap())
         .unwrap()
         .map(|entry| {

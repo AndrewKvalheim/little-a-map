@@ -6,7 +6,7 @@ use serde_json::json;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Add;
-use std::path::PathBuf;
+use std::path::Path;
 
 type Canvas = [u8; 128 * 128];
 
@@ -78,7 +78,7 @@ impl Tile {
 
     pub fn render<'a>(
         &self,
-        output_path: &PathBuf,
+        output_path: &Path,
         maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
         maps_modified: FileTime,
         force: bool,

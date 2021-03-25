@@ -20,7 +20,7 @@ use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::Instant;
 use tile::Tile;
 use utilities::progress_bar;
@@ -36,7 +36,7 @@ struct IndexTemplate<'a> {
 }
 
 pub fn search(
-    level_path: &PathBuf,
+    level_path: &Path,
     quiet: bool,
     region_bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
@@ -69,8 +69,8 @@ pub fn search(
 
 pub fn render(
     generator: &str,
-    level_path: &PathBuf,
-    output_path: &PathBuf,
+    level_path: &Path,
+    output_path: &Path,
     quiet: bool,
     force: bool,
     level_info: &Level,
@@ -85,8 +85,8 @@ pub fn render(
 
     fn render_quadrant<'a>(
         tile_count: &mut usize,
-        level_path: &PathBuf,
-        output_path: &PathBuf,
+        level_path: &Path,
+        output_path: &Path,
         force: bool,
         bar: ProgressBar,
         maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
@@ -141,7 +141,7 @@ pub fn render(
         layers.pop();
 
         Ok(())
-    };
+    }
 
     let length = results.root_tiles.len();
     let hidden = quiet || length < 3;
@@ -246,8 +246,8 @@ pub fn render(
 
 pub fn run(
     generator: &str,
-    level_path: &PathBuf,
-    output_path: &PathBuf,
+    level_path: &Path,
+    output_path: &Path,
     quiet: bool,
     force: bool,
 ) -> Result<()> {

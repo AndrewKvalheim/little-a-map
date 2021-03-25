@@ -18,7 +18,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub type Bounds = ((i32, i32), (i32, i32));
 
@@ -96,8 +96,8 @@ pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
         .collect()
 });
 
-struct ChunkMapIDs(HashSet<u32>);
-impl<'de> Deserialize<'de> for ChunkMapIDs {
+struct ChunkMapIds(HashSet<u32>);
+impl<'de> Deserialize<'de> for ChunkMapIds {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
@@ -115,8 +115,8 @@ impl<'de> Deserialize<'de> for ChunkMapIDs {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct OptionItems {
-            item: Option<ItemMapID>,
-            items: Option<Vec<ItemMapID>>,
+            item: Option<ItemMapId>,
+            items: Option<Vec<ItemMapId>>,
         }
 
         let internal = Internal::deserialize(deserializer)?;
@@ -173,8 +173,8 @@ impl<'de> Deserialize<'de> for Dimension {
     }
 }
 
-struct ItemMapID(Option<u32>);
-impl<'de> Deserialize<'de> for ItemMapID {
+struct ItemMapId(Option<u32>);
+impl<'de> Deserialize<'de> for ItemMapId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(tag = "id")]
@@ -268,14 +268,14 @@ impl<'de> Deserialize<'de> for MapMeta {
     }
 }
 
-struct PlayerMapIDs(HashSet<u32>);
-impl<'de> Deserialize<'de> for PlayerMapIDs {
+struct PlayerMapIds(HashSet<u32>);
+impl<'de> Deserialize<'de> for PlayerMapIds {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct Internal {
-            ender_items: Vec<ItemMapID>,
-            inventory: Vec<ItemMapID>,
+            ender_items: Vec<ItemMapId>,
+            inventory: Vec<ItemMapId>,
         }
 
         let internal = Internal::deserialize(deserializer)?;
@@ -298,7 +298,7 @@ pub struct ScanResults {
     pub root_tiles: HashSet<Tile>,
 }
 
-fn read_gz(path: &PathBuf) -> Result<Vec<u8>> {
+fn read_gz(path: &Path) -> Result<Vec<u8>> {
     let mut decoder = GzDecoder::new(File::open(&path)?);
     let mut data = Vec::new();
 
@@ -307,21 +307,20 @@ fn read_gz(path: &PathBuf) -> Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn load_map(path: &PathBuf, id: u32) -> Result<MapData> {
+pub fn load_map(path: &Path, id: u32) -> Result<MapData> {
     Ok(from_bytes(&read_gz(
         &path.join(format!("data/map_{}.dat", id)),
     )?)?)
 }
 
-pub fn read_level(path: &PathBuf) -> Result<Level> {
+pub fn read_level(path: &Path) -> Result<Level> {
     Ok(from_bytes(&read_gz(&path.join("level.dat"))?)?)
 }
 
-pub fn scan_maps(level_path: &PathBuf, ids: HashSet<u32>) -> Result<ScanResults> {
+pub fn scan_maps(level_path: &Path, ids: HashSet<u32>) -> Result<ScanResults> {
     let data_path = level_path.join("data");
 
-    Ok(ids
-        .into_par_iter()
+    ids.into_par_iter()
         .map(move |id| -> Result<ScanResults> {
             let path = data_path.join(format!("map_{}.dat", id));
             let mut results = ScanResults::default();
@@ -354,11 +353,11 @@ pub fn scan_maps(level_path: &PathBuf, ids: HashSet<u32>) -> Result<ScanResults>
             results.banners.extend(other.banners);
 
             Ok(results)
-        })?)
+        })
 }
 
 pub fn search_players(
-    level_path: &PathBuf,
+    level_path: &Path,
     quiet: bool,
     count_players: &mut usize,
 ) -> Result<HashMap<String, HashSet<u32>>> {
@@ -386,12 +385,12 @@ pub fn search_players(
     players
         .into_par_iter()
         .progress_with(progress_bar(hidden, message, length, "players"))
-        .map(|(uuid, path)| Ok((uuid, from_bytes::<PlayerMapIDs>(&read_gz(&path)?)?.0)))
+        .map(|(uuid, path)| Ok((uuid, from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0)))
         .collect()
 }
 
 pub fn search_regions(
-    level_path: &PathBuf,
+    level_path: &Path,
     quiet: bool,
     bounds: Option<&Bounds>,
     count_regions: &mut usize,
@@ -435,7 +434,7 @@ pub fn search_regions(
 
             fastanvil::Region::new(File::open(&path)?)
                 .for_each_chunk(|_x, _z, nbt| {
-                    map_ids.extend(from_bytes::<ChunkMapIDs>(nbt).unwrap().0);
+                    map_ids.extend(from_bytes::<ChunkMapIds>(nbt).unwrap().0);
                 })
                 .unwrap_or_default();
 
