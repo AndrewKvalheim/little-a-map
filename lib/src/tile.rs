@@ -10,10 +10,15 @@ use std::path::Path;
 
 type Canvas = [u8; 128 * 128];
 
+#[allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation
+)]
 fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, data: &MapData) {
     let (tx, ty) = tile.position();
     let (mx, my) = map.tile.position();
-    let factor = 2i32.pow((tile.zoom - map.tile.zoom) as u32);
+    let factor = 2_i32.pow(u32::from(tile.zoom - map.tile.zoom));
     let a = (tx - mx) / factor + (ty - my) / factor * 128;
     let b = 128 - 128 / factor;
 
@@ -32,14 +37,14 @@ fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, da
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Tile {
-    pub zoom: i8,
+    pub zoom: u8,
     pub x: i32,
     pub y: i32,
 }
 
 impl Tile {
-    pub fn from_position(scale: i8, x: i32, z: i32) -> Self {
-        let size = 128 * 2i32.pow(scale as u32);
+    pub fn from_position(scale: u8, x: i32, z: i32) -> Self {
+        let size = 128 * 2_i32.pow(u32::from(scale));
 
         Self {
             zoom: 4 - scale,
@@ -49,26 +54,26 @@ impl Tile {
     }
 
     #[cfg(test)]
-    pub fn new(zoom: i8, x: i32, y: i32) -> Self {
+    pub fn new(zoom: u8, x: i32, y: i32) -> Self {
         Self { zoom, x, y }
     }
 
     pub fn position(&self) -> (i32, i32) {
-        let size = 128 * 2i32.pow((4 - self.zoom) as u32);
+        let size = 128 * 2_i32.pow(u32::from(4 - self.zoom));
 
         (size * self.x, size * self.y)
     }
 
-    pub fn quadrants(&self) -> [Tile; 4] {
+    pub fn quadrants(&self) -> [Self; 4] {
         let zoom = self.zoom + 1;
         let x = self.x * 2;
         let y = self.y * 2;
 
         [
-            Tile { zoom, x, y },
-            Tile { zoom, x, y: y + 1 },
-            Tile { zoom, x: x + 1, y },
-            Tile {
+            Self { zoom, x, y },
+            Self { zoom, x, y: y + 1 },
+            Self { zoom, x: x + 1, y },
+            Self {
                 zoom,
                 x: x + 1,
                 y: y + 1,
@@ -103,7 +108,7 @@ impl Tile {
         let ids = maps
             .into_iter()
             .map(|(map, image)| {
-                draw_behind(self, &mut dirty, &mut canvas, map, &image);
+                draw_behind(self, &mut dirty, &mut canvas, map, image);
 
                 map.id
             })
@@ -160,7 +165,7 @@ mod test {
 
     #[test]
     fn from_position() {
-        fn expect(scale: i8, cx: i32, cz: i32, zoom: i8, x: i32, y: i32) {
+        fn expect(scale: u8, cx: i32, cz: i32, zoom: u8, x: i32, y: i32) {
             assert_eq!(Tile::from_position(scale, cx, cz), Tile::new(zoom, x, y))
         }
 

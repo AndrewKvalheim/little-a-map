@@ -18,7 +18,7 @@ pub struct Map {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::cmp::Ordering::*;
+    use std::cmp::Ordering::{Equal, Greater, Less};
 
     #[test]
     fn compare() {

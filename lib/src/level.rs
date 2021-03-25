@@ -247,7 +247,7 @@ impl<'de> Deserialize<'de> for MapMeta {
             #[query(".data.dimension")]
             dimension: Dimension,
             #[query(".data.scale")]
-            scale: i8,
+            scale: u8,
             #[query(".data.unlimitedTracking")]
             unlimited_tracking: bool,
             #[query(".data.xCenter")]
@@ -258,12 +258,12 @@ impl<'de> Deserialize<'de> for MapMeta {
 
         let internal = Internal::deserialize(deserializer)?;
         if !internal.unlimited_tracking && internal.dimension == Dimension::Overworld {
-            Ok(MapMeta::Normal {
+            Ok(Self::Normal {
                 banners: internal.banners,
                 tile: Tile::from_position(internal.scale, internal.x, internal.z),
             })
         } else {
-            Ok(MapMeta::Other)
+            Ok(Self::Other)
         }
     }
 }

@@ -1,3 +1,14 @@
+#![warn(clippy::nursery, clippy::pedantic)]
+#![allow(
+    clippy::implicit_hasher,
+    clippy::missing_const_for_fn,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::non_ascii_literal,
+    clippy::too_many_lines
+)]
+
 // Workaround for https://github.com/rust-lang/rust/issues/55779
 extern crate serde;
 
@@ -44,10 +55,10 @@ pub fn search(
     let mut players_searched = 0;
     let mut regions_searched = 0;
 
-    let ids_by_player = level::search_players(&level_path, quiet, &mut players_searched)?;
+    let ids_by_player = level::search_players(level_path, quiet, &mut players_searched)?;
 
     let ids_by_region =
-        level::search_regions(&level_path, quiet, region_bounds, &mut regions_searched)?;
+        level::search_regions(level_path, quiet, region_bounds, &mut regions_searched)?;
 
     let ids: HashSet<u32> = ids_by_region
         .into_iter()
@@ -76,26 +87,19 @@ pub fn render(
     level_info: &Level,
     ids: HashSet<u32>,
 ) -> Result<()> {
-    let start_time = Instant::now();
-    let mut maps_rendered = 0;
-    let mut tiles_rendered = 0;
-
-    let results = level::scan_maps(&level_path, ids)?;
-    maps_rendered += results.maps_by_tile.len();
-
     fn render_quadrant<'a>(
         tile_count: &mut usize,
         level_path: &Path,
         output_path: &Path,
         force: bool,
-        bar: ProgressBar,
+        bar: &ProgressBar,
         maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
         layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
         tile: &Tile,
     ) -> Result<()> {
         layers.push(
             maps_by_tile
-                .get(&tile)
+                .get(tile)
                 .map(|maps| {
                     maps.iter()
                         .map(|map| Ok((map, level::load_map(level_path, map.id)?)))
@@ -113,7 +117,7 @@ pub fn render(
                 .max()
             {
                 if tile.render(
-                    &output_path,
+                    output_path,
                     layers.iter().flatten().flatten().rev(),
                     map_modified,
                     force,
@@ -130,10 +134,10 @@ pub fn render(
                     level_path,
                     output_path,
                     force,
-                    bar.clone(),
+                    bar,
                     maps_by_tile,
                     layers,
-                    &t,
+                    t,
                 )
             })?;
         }
@@ -143,10 +147,16 @@ pub fn render(
         Ok(())
     }
 
+    let start_time = Instant::now();
+    let mut maps_rendered = 0;
+    let mut tiles_rendered = 0;
+
+    let results = level::scan_maps(level_path, ids)?;
+    maps_rendered += results.maps_by_tile.len();
+
     let length = results.root_tiles.len();
     let hidden = quiet || length < 3;
-
-    let bar = progress_bar(hidden, "Render", length * 4usize.pow(4), "tiles");
+    let bar = progress_bar(hidden, "Render", length * 4_usize.pow(4), "tiles");
 
     tiles_rendered += results
         .root_tiles
@@ -156,10 +166,10 @@ pub fn render(
 
             render_quadrant(
                 &mut tile_count,
-                &level_path,
-                &output_path,
+                level_path,
+                output_path,
                 force,
-                bar.clone(),
+                &bar,
                 &results.maps_by_tile,
                 &mut Vec::with_capacity(5),
                 t,
@@ -251,17 +261,17 @@ pub fn run(
     quiet: bool,
     force: bool,
 ) -> Result<()> {
-    let level_info = level::read_level(&level_path)?;
+    let level_info = level::read_level(level_path)?;
     if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level_info.version) {
         panic!("Incompatible with game version {}", level_info.version);
     }
 
-    let map_ids = search(&level_path, quiet, None)?;
+    let map_ids = search(level_path, quiet, None)?;
 
     render(
-        &generator,
-        &level_path,
-        &output_path,
+        generator,
+        level_path,
+        output_path,
         quiet,
         force,
         &level_info,
