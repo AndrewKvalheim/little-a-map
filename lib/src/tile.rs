@@ -1,7 +1,7 @@
-use crate::level::{self, MapData};
-use crate::map::Map;
+use crate::map::{Map, MapData};
 use anyhow::Result;
 use filetime::FileTime;
+use once_cell::sync::Lazy;
 use serde_json::json;
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -9,6 +9,81 @@ use std::ops::Add;
 use std::path::Path;
 
 type Canvas = [u8; 128 * 128];
+
+const PALETTE_BASE: [[u8; 3]; 59] = [
+    [0, 0, 0],
+    [127, 178, 56],
+    [247, 233, 163],
+    [199, 199, 199],
+    [255, 0, 0],
+    [160, 160, 255],
+    [167, 167, 167],
+    [0, 124, 0],
+    [255, 255, 255],
+    [164, 168, 184],
+    [151, 109, 77],
+    [112, 112, 112],
+    [64, 64, 255],
+    [143, 119, 72],
+    [255, 252, 245],
+    [216, 127, 51],
+    [178, 76, 216],
+    [102, 153, 216],
+    [229, 229, 51],
+    [127, 204, 25],
+    [242, 127, 165],
+    [76, 76, 76],
+    [153, 153, 153],
+    [76, 127, 153],
+    [127, 63, 178],
+    [51, 76, 178],
+    [102, 76, 51],
+    [102, 127, 51],
+    [153, 51, 51],
+    [25, 25, 25],
+    [250, 238, 77],
+    [92, 219, 213],
+    [74, 128, 255],
+    [0, 217, 58],
+    [129, 86, 49],
+    [112, 2, 0],
+    [209, 177, 161],
+    [159, 82, 36],
+    [149, 87, 108],
+    [112, 108, 138],
+    [186, 133, 36],
+    [103, 117, 53],
+    [160, 77, 78],
+    [57, 41, 35],
+    [135, 107, 98],
+    [87, 92, 92],
+    [122, 73, 88],
+    [76, 62, 92],
+    [76, 50, 35],
+    [76, 82, 42],
+    [142, 60, 46],
+    [37, 22, 16],
+    [189, 48, 49],
+    [148, 63, 97],
+    [92, 25, 29],
+    [22, 126, 134],
+    [58, 142, 140],
+    [86, 44, 62],
+    [20, 180, 133],
+];
+const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
+pub const TRNS: [u8; PALETTE_FACTORS.len()] = [0; PALETTE_FACTORS.len()];
+#[allow(clippy::cast_possible_truncation)]
+pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
+    PALETTE_BASE
+        .iter()
+        .flat_map(|rgb| {
+            PALETTE_FACTORS
+                .iter()
+                .flat_map(move |&f| rgb.iter().map(move |&v| (u32::from(v) * f / 255) as u8))
+        })
+        .collect()
+});
 
 #[allow(
     clippy::cast_possible_wrap,
@@ -127,8 +202,8 @@ impl Tile {
             encoder.set_compression(png::Compression::Rle);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
-            encoder.set_palette(level::PALETTE.clone());
-            encoder.set_trns(level::TRNS.to_vec());
+            encoder.set_palette(PALETTE.clone());
+            encoder.set_trns(TRNS.to_vec());
             encoder.write_header()?.write_image_data(&canvas)?;
             filetime::set_file_mtime(&png_path, maps_modified)?;
         }

@@ -12,10 +12,11 @@
 // Workaround for https://github.com/rust-lang/rust/issues/55779
 extern crate serde;
 
-pub mod banner;
+mod banner;
 pub mod level;
-pub mod map;
-pub mod tile;
+mod map;
+mod search;
+mod tile;
 mod utilities;
 
 use anyhow::Result;
@@ -23,9 +24,10 @@ use askama::Template;
 use banner::Banner;
 use filetime::{self, FileTime};
 use indicatif::ProgressBar;
-use level::{Bounds, Level, MapData};
-use map::Map;
+use level::Level;
+use map::{Map, MapData, MapScan};
 use rayon::prelude::*;
+use search::{search_players, search_regions, Bounds};
 use semver::VersionReq;
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -47,7 +49,7 @@ struct IndexTemplate<'a> {
 }
 
 pub fn search(
-    level_path: &Path,
+    world_path: &Path,
     quiet: bool,
     region_bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
@@ -55,10 +57,8 @@ pub fn search(
     let mut players_searched = 0;
     let mut regions_searched = 0;
 
-    let ids_by_player = level::search_players(level_path, quiet, &mut players_searched)?;
-
-    let ids_by_region =
-        level::search_regions(level_path, quiet, region_bounds, &mut regions_searched)?;
+    let ids_by_player = search_players(world_path, quiet, &mut players_searched)?;
+    let ids_by_region = search_regions(world_path, quiet, region_bounds, &mut regions_searched)?;
 
     let ids: HashSet<u32> = ids_by_region
         .into_iter()
@@ -80,16 +80,16 @@ pub fn search(
 
 pub fn render(
     generator: &str,
-    level_path: &Path,
+    world_path: &Path,
     output_path: &Path,
     quiet: bool,
     force: bool,
-    level_info: &Level,
+    level: &Level,
     ids: HashSet<u32>,
 ) -> Result<()> {
     fn render_quadrant<'a>(
         tile_count: &mut usize,
-        level_path: &Path,
+        world_path: &Path,
         output_path: &Path,
         force: bool,
         bar: &ProgressBar,
@@ -102,7 +102,7 @@ pub fn render(
                 .get(tile)
                 .map(|maps| {
                     maps.iter()
-                        .map(|map| Ok((map, level::load_map(level_path, map.id)?)))
+                        .map(|map| Ok((map, MapData::from_world_path(world_path, map.id)?)))
                         .collect::<Result<_>>()
                 })
                 .transpose()?,
@@ -131,7 +131,7 @@ pub fn render(
             tile.quadrants().iter().try_for_each(|t| {
                 render_quadrant(
                     tile_count,
-                    level_path,
+                    world_path,
                     output_path,
                     force,
                     bar,
@@ -151,7 +151,7 @@ pub fn render(
     let mut maps_rendered = 0;
     let mut tiles_rendered = 0;
 
-    let results = level::scan_maps(level_path, ids)?;
+    let results = MapScan::run(world_path, ids)?;
     maps_rendered += results.maps_by_tile.len();
 
     let length = results.root_tiles.len();
@@ -166,7 +166,7 @@ pub fn render(
 
             render_quadrant(
                 &mut tile_count,
-                level_path,
+                world_path,
                 output_path,
                 force,
                 &bar,
@@ -233,8 +233,8 @@ pub fn render(
 
     let index_template = IndexTemplate {
         generator,
-        spawn_x: level_info.spawn_x,
-        spawn_z: level_info.spawn_z,
+        spawn_x: level.spawn_x,
+        spawn_z: level.spawn_z,
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
@@ -256,25 +256,25 @@ pub fn render(
 
 pub fn run(
     generator: &str,
-    level_path: &Path,
+    world_path: &Path,
     output_path: &Path,
     quiet: bool,
     force: bool,
 ) -> Result<()> {
-    let level_info = level::read_level(level_path)?;
-    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level_info.version) {
-        panic!("Incompatible with game version {}", level_info.version);
+    let level = Level::from_world_path(world_path)?;
+    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version) {
+        panic!("Incompatible with game version {}", level.version);
     }
 
-    let map_ids = search(level_path, quiet, None)?;
+    let map_ids = search(world_path, quiet, None)?;
 
     render(
         generator,
-        level_path,
+        world_path,
         output_path,
         quiet,
         force,
-        &level_info,
+        &level,
         map_ids,
     )?;
 

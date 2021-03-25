@@ -1,11 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use glob::glob;
+use lib::{level::Level, render, search};
 use std::collections::HashSet;
 use std::env;
 use std::path::{Path, PathBuf};
 
-fn all_map_ids(level_path: &Path) -> HashSet<u32> {
-    glob(level_path.join("data/map_*.dat").to_str().unwrap())
+fn all_map_ids(world_path: &Path) -> HashSet<u32> {
+    glob(world_path.join("data/map_*.dat").to_str().unwrap())
         .unwrap()
         .map(|entry| {
             entry
@@ -24,11 +25,11 @@ fn all_map_ids(level_path: &Path) -> HashSet<u32> {
 }
 
 pub fn bench_render(c: &mut Criterion) {
-    let level_path = PathBuf::from(env!("BENCH_LEVEL_PATH"));
+    let world_path = PathBuf::from(env!("BENCH_WORLD_PATH"));
     let output_path = PathBuf::from(env!("BENCH_OUTPUT_PATH"));
     let generator = "benchmark";
-    let level_info = lib::level::read_level(&level_path).unwrap();
-    let map_ids = all_map_ids(&level_path);
+    let level_info = Level::from_world_path(&world_path).unwrap();
+    let map_ids = all_map_ids(&world_path);
 
     let mut group = c.benchmark_group("little-a-map");
     group.sample_size(20);
@@ -36,9 +37,9 @@ pub fn bench_render(c: &mut Criterion) {
         b.iter_batched(
             || map_ids.clone(),
             |ids| {
-                lib::render(
+                render(
                     generator,
-                    black_box(&level_path),
+                    black_box(&world_path),
                     black_box(&output_path),
                     true,
                     black_box(true),
@@ -53,7 +54,7 @@ pub fn bench_render(c: &mut Criterion) {
 }
 
 pub fn bench_search(c: &mut Criterion) {
-    let level_path = PathBuf::from(env!("BENCH_LEVEL_PATH"));
+    let world_path = PathBuf::from(env!("BENCH_WORLD_PATH"));
     let bounds = (
         (
             env!("BENCH_SCAN_REGION_X0").parse::<i32>().unwrap(),
@@ -68,7 +69,7 @@ pub fn bench_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("little-a-map");
     group.sample_size(20);
     group.bench_function("search", |b| {
-        b.iter(|| lib::search(black_box(&level_path), true, Some(&bounds)))
+        b.iter(|| search(black_box(&world_path), true, Some(&bounds)))
     });
     group.finish();
 }
