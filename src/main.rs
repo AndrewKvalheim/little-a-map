@@ -16,7 +16,8 @@ fn main(args: Args) -> Result<()> {
     let world_path = args.world_path;
     let output_path = args.output_path;
 
-    let generator = format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    let name = env!("CARGO_PKG_NAME");
+    let version = env!("CARGO_PKG_VERSION");
 
-    lib::run(&generator, &world_path, &output_path, false, false)
+    lib::run(&name, &version, &world_path, &output_path, false, false)
 }

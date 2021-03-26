@@ -1,15 +1,17 @@
 #![allow(clippy::module_name_repetitions)]
 
+use crate::cache::{Cache, Referrer};
 use crate::utilities::{progress_bar, read_gz};
 use anyhow::Result;
 use fastnbt::de::from_bytes;
+use filetime::FileTime;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use serde::{Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::fs::{self, File};
+use std::path::Path;
 
 pub type Bounds = ((i32, i32), (i32, i32));
 
@@ -100,68 +102,70 @@ impl<'de> Deserialize<'de> for PlayerMapIds {
 
 pub fn search_players(
     world_path: &Path,
+    cache: &mut Cache,
     quiet: bool,
     count_players: &mut usize,
-) -> Result<HashMap<String, HashSet<u32>>> {
-    let players = glob(
-        world_path
-            .join("playerdata/????????-????-????-????-????????????.dat")
-            .to_str()
-            .unwrap(),
-    )?
-    .map(|entry| -> Result<(String, PathBuf)> {
-        let path = entry?;
+) -> Result<()> {
+    let pattern = "playerdata/????????-????-????-????-????????????.dat";
+    let players = glob(world_path.join(pattern).to_str().unwrap())?
+        .map(|entry| {
+            let path = entry?;
+            let uuid = path.file_stem().unwrap().to_str().unwrap().to_string();
+            let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
-        let uuid = path.file_stem().unwrap().to_str().unwrap().to_string();
-
-        Ok((uuid, path))
-    })
-    .collect::<Result<Vec<_>>>()?;
+            Ok(match cache.players.get(&uuid) {
+                Some(r) if r.modified >= modified => None,
+                _ => Some((path, uuid, modified)),
+            })
+        })
+        .filter_map(Result::transpose)
+        .collect::<Result<Vec<_>>>()?;
 
     let length = players.len();
     let bar = progress_bar(quiet, "Search for map items", length, 64, "players");
 
     *count_players += length;
 
-    let ids_by_player = players
-        .into_par_iter()
-        .progress_with(bar.clone())
-        .map(|(uuid, path)| Ok((uuid, from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0)))
-        .collect::<Result<HashMap<_, _>>>();
+    cache.players.extend(
+        players
+            .into_par_iter()
+            .progress_with(bar.clone())
+            .map(|(path, uuid, modified)| {
+                let map_ids = from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0;
+                Ok((uuid, Referrer { map_ids, modified }))
+            })
+            .collect::<Result<HashMap<_, _>>>()?,
+    );
 
     bar.finish_and_clear();
-    ids_by_player
+    Ok(())
 }
 
 pub fn search_regions(
     world_path: &Path,
+    cache: &mut Cache,
     quiet: bool,
     bounds: Option<&Bounds>,
     count_regions: &mut usize,
-) -> Result<HashMap<(i32, i32), HashSet<u32>>> {
+) -> Result<()> {
     let regions = glob(world_path.join("region/r.*.mca").to_str().unwrap())?
-        .map(|entry| -> Result<((i32, i32), PathBuf)> {
+        .map(|entry| {
             let path = entry?;
-
-            let mut parts = path
-                .file_stem()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .split('.')
-                .skip(1);
+            let base = path.file_stem().unwrap().to_str().unwrap();
+            let mut parts = base.split('.').skip(1);
             let x = parts.next().unwrap().parse::<i32>()?;
             let z = parts.next().unwrap().parse::<i32>()?;
+            let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
-            Ok(((x, z), path))
-        })
-        .filter(|region| {
-            region.as_ref().map_or(true, |((x, z), _)| {
-                bounds.map_or(true, |((x0, z0), (x1, z1))| {
-                    x0 <= x && x <= x1 && z0 <= z && z <= z1
-                })
+            Ok(match bounds {
+                Some(&((x0, z0), (x1, z1))) if x < x0 || x > x1 || z < z0 || z > z1 => None,
+                _ => match cache.regions.get(&(x, z)) {
+                    Some(r) if r.modified >= modified => None,
+                    _ => Some(((x, z), path, modified)),
+                },
             })
         })
+        .filter_map(Result::transpose)
         .collect::<Result<Vec<_>>>()?;
 
     let length = regions.len();
@@ -169,22 +173,24 @@ pub fn search_regions(
 
     *count_regions += length;
 
-    let ids_by_region = regions
-        .into_par_iter()
-        .progress_with(bar.clone())
-        .map(|(position, path)| {
-            let mut map_ids: HashSet<u32> = HashSet::new();
+    cache.regions.extend(
+        regions
+            .into_par_iter()
+            .progress_with(bar.clone())
+            .map(|(position, path, modified)| {
+                let mut map_ids = HashSet::new();
 
-            fastanvil::Region::new(File::open(&path)?)
-                .for_each_chunk(|_x, _z, nbt| {
-                    map_ids.extend(from_bytes::<ChunkMapIds>(nbt).unwrap().0);
-                })
-                .unwrap_or_default();
+                fastanvil::Region::new(File::open(&path)?)
+                    .for_each_chunk(|_, _, nbt| {
+                        map_ids.extend(from_bytes::<ChunkMapIds>(nbt).unwrap().0);
+                    })
+                    .unwrap_or_default();
 
-            Ok((position, map_ids))
-        })
-        .collect();
+                Ok((position, Referrer { map_ids, modified }))
+            })
+            .collect::<Result<HashMap<_, _>>>()?,
+    );
 
     bar.finish_and_clear();
-    ids_by_region
+    Ok(())
 }

@@ -22,6 +22,8 @@ Searched 3731 regions and 5 players in 11.84s
 Rendered 5698 tiles from 172 map items in 0.65s
 ```
 
+Subsequent runs will re-render only changed tiles.
+
 ## Acknowledgements
 
 _Little a Map_ is inspired by _[Papyri]_ by [Jason Green].

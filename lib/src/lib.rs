@@ -13,6 +13,7 @@
 extern crate serde;
 
 mod banner;
+mod cache;
 pub mod level;
 mod map;
 mod search;
@@ -22,6 +23,7 @@ mod utilities;
 use anyhow::Result;
 use askama::Template;
 use banner::Banner;
+use cache::Cache;
 use filetime::{self, FileTime};
 use indicatif::ProgressBar;
 use level::Level;
@@ -50,20 +52,22 @@ struct IndexTemplate<'a> {
 
 pub fn search(
     world_path: &Path,
+    cache: &mut Cache,
     quiet: bool,
-    region_bounds: Option<&Bounds>,
+    bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
     let mut players_searched = 0;
     let mut regions_searched = 0;
 
-    let ids_by_player = search_players(world_path, quiet, &mut players_searched)?;
-    let ids_by_region = search_regions(world_path, quiet, region_bounds, &mut regions_searched)?;
+    search_players(world_path, cache, quiet, &mut players_searched)?;
+    search_regions(world_path, cache, quiet, bounds, &mut regions_searched)?;
 
-    let ids: HashSet<u32> = ids_by_region
-        .into_iter()
-        .flat_map(|(_, ids)| ids)
-        .chain(ids_by_player.into_iter().flat_map(|(_, ids)| ids))
+    let ids = cache
+        .players
+        .values()
+        .chain(cache.regions.values())
+        .flat_map(|r| r.map_ids.iter().copied())
         .collect();
 
     if !quiet {
@@ -254,7 +258,8 @@ pub fn render(
 }
 
 pub fn run(
-    generator: &str,
+    name: &str,
+    version: &str,
     world_path: &Path,
     output_path: &Path,
     quiet: bool,
@@ -265,10 +270,16 @@ pub fn run(
         panic!("Incompatible with game version {}", level.version);
     }
 
-    let map_ids = search(world_path, quiet, None)?;
+    let cache_path = output_path.join(format!(".cache/{}.dat", name));
+    let mut cache = Cache::from_path(&cache_path)?;
 
+    let map_ids = search(world_path, &mut cache, quiet, None)?;
+
+    cache.write_to(&cache_path)?;
+
+    let generator = format!("{} {}", name, version);
     render(
-        generator,
+        &generator,
         world_path,
         output_path,
         quiet,
