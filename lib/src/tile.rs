@@ -3,6 +3,7 @@ use anyhow::Result;
 use filetime::FileTime;
 use once_cell::sync::Lazy;
 use serde_json::json;
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Add;
@@ -72,7 +73,7 @@ const PALETTE_BASE: [[u8; 3]; 59] = [
     [20, 180, 133],
 ];
 const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
-pub const TRNS: [u8; PALETTE_FACTORS.len()] = [0; PALETTE_FACTORS.len()];
+const PALETTE_LEN: usize = PALETTE_BASE.len() * PALETTE_FACTORS.len();
 #[allow(clippy::cast_possible_truncation)]
 pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
     PALETTE_BASE
@@ -108,6 +109,23 @@ fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, da
             *pixel = map_pixel;
         }
     }
+}
+
+fn shrink_palette(canvas: &mut Canvas) -> Vec<u8> {
+    let mut palette = Vec::<u8>::with_capacity(PALETTE_LEN * 3);
+    let mut map = HashMap::<u8, u8>::with_capacity(PALETTE_LEN);
+    let mut next = 0;
+
+    for pixel in canvas.iter_mut() {
+        *pixel = *map.entry(*pixel).or_insert_with(|| {
+            let (i, j) = (*pixel as usize * 3, next);
+            palette.extend(&PALETTE[i..i + 3]);
+            next += 1;
+            j
+        });
+    }
+
+    palette
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -195,15 +213,15 @@ impl Tile {
 
         // Image
         if dirty {
-            let png_path = base_path.with_extension("png");
+            let palette = shrink_palette(&mut canvas);
 
+            let png_path = base_path.with_extension("png");
             let mut encoder = png::Encoder::new(BufWriter::new(File::create(&png_path)?), 128, 128);
             encoder.set_color(png::ColorType::Indexed);
             encoder.set_compression(png::Compression::Rle);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
-            encoder.set_palette(PALETTE.clone());
-            encoder.set_trns(TRNS.to_vec());
+            encoder.set_palette(palette);
             encoder.write_header()?.write_image_data(&canvas)?;
             filetime::set_file_mtime(&png_path, maps_modified)?;
         }
