@@ -5,17 +5,18 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-pub fn progress_bar(hidden: bool, message: &str, length: usize, unit: &str) -> ProgressBar {
-    if hidden {
+pub fn progress_bar(quiet: bool, message: &str, len: usize, delta: u64, unit: &str) -> ProgressBar {
+    if quiet || len as u64 <= delta {
         ProgressBar::hidden()
     } else {
-        let bar = ProgressBar::new(length as u64);
+        let bar = ProgressBar::new(len as u64);
 
         bar.set_style(ProgressStyle::default_bar().template(&format!(
             "{{msg}} {{wide_bar}} {{pos}}/{{len}} {unit}",
             unit = unit
         )));
 
+        bar.set_draw_delta(delta);
         bar.set_message(message);
 
         bar

@@ -154,9 +154,8 @@ pub fn render(
     let results = MapScan::run(world_path, ids)?;
     maps_rendered += results.maps_by_tile.len();
 
-    let length = results.root_tiles.len();
-    let hidden = quiet || length < 3;
-    let bar = progress_bar(hidden, "Render", length * 4_usize.pow(4), "tiles");
+    let length = results.root_tiles.len() * 4_usize.pow(4);
+    let bar = progress_bar(quiet, "Render", length, 4_u64.pow(3), "tiles");
 
     tiles_rendered += results
         .root_tiles

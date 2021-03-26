@@ -119,16 +119,18 @@ pub fn search_players(
     .collect::<Result<Vec<_>>>()?;
 
     let length = players.len();
-    let hidden = quiet || length < 10;
-    let message = "Search for map items";
+    let bar = progress_bar(quiet, "Search for map items", length, 64, "players");
 
     *count_players += length;
 
-    players
+    let ids_by_player = players
         .into_par_iter()
-        .progress_with(progress_bar(hidden, message, length, "players"))
+        .progress_with(bar.clone())
         .map(|(uuid, path)| Ok((uuid, from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0)))
-        .collect()
+        .collect::<Result<HashMap<_, _>>>();
+
+    bar.finish_and_clear();
+    ids_by_player
 }
 
 pub fn search_regions(
@@ -163,14 +165,13 @@ pub fn search_regions(
         .collect::<Result<Vec<_>>>()?;
 
     let length = regions.len();
-    let hidden = quiet || length < 3;
-    let message = "Search for map items";
+    let bar = progress_bar(quiet, "Search for map items", length, 4, "regions");
 
     *count_regions += length;
 
-    regions
+    let ids_by_region = regions
         .into_par_iter()
-        .progress_with(progress_bar(hidden, message, length, "regions"))
+        .progress_with(bar.clone())
         .map(|(position, path)| {
             let mut map_ids: HashSet<u32> = HashSet::new();
 
@@ -182,5 +183,8 @@ pub fn search_regions(
 
             Ok((position, map_ids))
         })
-        .collect()
+        .collect();
+
+    bar.finish_and_clear();
+    ids_by_region
 }
