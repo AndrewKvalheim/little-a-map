@@ -75,7 +75,7 @@ const PALETTE_BASE: [[u8; 3]; 59] = [
 const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
 const PALETTE_LEN: usize = PALETTE_BASE.len() * PALETTE_FACTORS.len();
 #[allow(clippy::cast_possible_truncation)]
-pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
+static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
     PALETTE_BASE
         .iter()
         .flat_map(|rgb| {
@@ -112,8 +112,8 @@ fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, da
 }
 
 fn shrink_palette(canvas: &mut Canvas) -> Vec<u8> {
-    let mut palette = Vec::<u8>::with_capacity(PALETTE_LEN * 3);
-    let mut map = HashMap::<u8, u8>::with_capacity(PALETTE_LEN);
+    let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
+    let mut map = HashMap::with_capacity(PALETTE_LEN);
     let mut next = 0;
 
     for pixel in canvas.iter_mut() {
