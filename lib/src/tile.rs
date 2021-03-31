@@ -218,7 +218,7 @@ impl Tile {
             let png_path = base_path.with_extension("png");
             let mut encoder = png::Encoder::new(BufWriter::new(File::create(&png_path)?), 128, 128);
             encoder.set_color(png::ColorType::Indexed);
-            encoder.set_compression(png::Compression::Rle);
+            encoder.set_compression(png::Compression::Default);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
             encoder.set_palette(palette);
