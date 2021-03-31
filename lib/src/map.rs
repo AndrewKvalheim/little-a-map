@@ -174,7 +174,13 @@ impl MapScan {
                     }
                 }
                 results.root_tiles.extend(other.root_tiles);
-                results.maps_by_tile.extend(other.maps_by_tile);
+                for (tile, other_maps) in other.maps_by_tile {
+                    results
+                        .maps_by_tile
+                        .entry(tile)
+                        .or_insert_with(BTreeSet::new)
+                        .extend(other_maps);
+                }
                 results.banners.extend(other.banners);
 
                 Ok(results)
