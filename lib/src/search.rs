@@ -8,7 +8,7 @@ use filetime::FileTime;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
-use serde::{Deserialize, Deserializer};
+use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::Path;
@@ -67,12 +67,13 @@ impl<'de> Deserialize<'de> for ItemMapId {
 
         #[derive(Deserialize)]
         struct FilledMapTag {
+            display: Option<IgnoredAny>,
             map: u32,
         }
 
         let internal = Internal::deserialize(deserializer)?;
         Ok(Self(match internal {
-            Internal::FilledMap { tag } => Some(tag.map),
+            Internal::FilledMap { tag } if tag.display.is_none() => Some(tag.map),
             _ => None,
         }))
     }

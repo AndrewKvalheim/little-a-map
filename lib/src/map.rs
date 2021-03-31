@@ -124,15 +124,13 @@ impl MapScan {
                     dimension: Dimension,
                     #[query(".data.scale")]
                     scale: u8,
-                    #[query(".data.unlimitedTracking")]
-                    unlimited_tracking: bool,
                     #[query(".data.xCenter")]
                     x: i32,
                     #[query(".data.zCenter")]
                     z: i32,
                 }
                 let internal = Internal::deserialize(deserializer)?;
-                if !internal.unlimited_tracking && internal.dimension == Dimension::Overworld {
+                if internal.dimension == Dimension::Overworld {
                     Ok(Self::Normal {
                         banners: internal.banners,
                         tile: Tile::from_position(internal.scale, internal.x, internal.z),
