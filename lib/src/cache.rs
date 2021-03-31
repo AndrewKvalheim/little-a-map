@@ -14,7 +14,7 @@ pub struct Cache {
     #[serde(deserialize_with = "validate_version")]
     version: String,
 
-    pub players: HashMap<String, Referrer>,
+    pub players: HashMap<usize, Referrer>,
     pub regions: HashMap<(i32, i32), Referrer>,
 }
 

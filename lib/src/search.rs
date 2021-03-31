@@ -107,16 +107,19 @@ pub fn search_players(
     quiet: bool,
     count_players: &mut usize,
 ) -> Result<()> {
-    let pattern = "playerdata/????????-????-????-????-????????????.dat";
-    let players = glob(world_path.join(pattern).to_str().unwrap())?
-        .map(|entry| {
-            let path = entry?;
-            let uuid = path.file_stem().unwrap().to_str().unwrap().to_string();
+    let pattern = world_path.join("playerdata/????????-????-????-????-????????????.dat");
+    let mut paths = glob(pattern.to_str().unwrap())?.collect::<Result<Vec<_>, _>>()?;
+    paths.sort();
+
+    let players = paths
+        .into_iter()
+        .enumerate()
+        .map(|(index, path)| {
             let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
-            Ok(match cache.players.get(&uuid) {
+            Ok(match cache.players.get(&index) {
                 Some(r) if r.modified >= modified => None,
-                _ => Some((path, uuid, modified)),
+                _ => Some((path, index, modified)),
             })
         })
         .filter_map(Result::transpose)
@@ -131,9 +134,9 @@ pub fn search_players(
         players
             .into_par_iter()
             .progress_with(bar.clone())
-            .map(|(path, uuid, modified)| {
+            .map(|(path, index, modified)| {
                 let map_ids = from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0;
-                Ok((uuid, Referrer { map_ids, modified }))
+                Ok((index, Referrer { map_ids, modified }))
             })
             .collect::<Result<HashMap<_, _>>>()?,
     );
