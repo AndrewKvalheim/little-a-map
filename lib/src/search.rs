@@ -1,6 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::cache::{Cache, Referrer};
+use crate::cache::Cache;
 use crate::utilities::{progress_bar, read_gz};
 use anyhow::Result;
 use fastnbt::de::from_bytes;
@@ -117,10 +117,7 @@ pub fn search_players(
         .map(|(index, path)| {
             let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
-            Ok(match cache.players.get(&index) {
-                Some(r) if r.modified >= modified => None,
-                _ => Some((path, index, modified)),
-            })
+            Ok(Some((index, path)).filter(|_| cache.modified.map_or(true, |m| m < modified)))
         })
         .filter_map(Result::transpose)
         .collect::<Result<Vec<_>>>()?;
@@ -130,14 +127,11 @@ pub fn search_players(
 
     *count_players += length;
 
-    cache.players.extend(
+    cache.map_ids_by_player.extend(
         players
             .into_par_iter()
             .progress_with(bar.clone())
-            .map(|(path, index, modified)| {
-                let map_ids = from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0;
-                Ok((index, Referrer { map_ids, modified }))
-            })
+            .map(|(index, path)| Ok((index, from_bytes::<PlayerMapIds>(&read_gz(&path)?)?.0)))
             .collect::<Result<HashMap<_, _>>>()?,
     );
 
@@ -159,14 +153,14 @@ pub fn search_regions(
             let mut parts = base.split('.').skip(1);
             let x = parts.next().unwrap().parse::<i32>()?;
             let z = parts.next().unwrap().parse::<i32>()?;
-            let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
 
             Ok(match bounds {
                 Some(&((x0, z0), (x1, z1))) if x < x0 || x > x1 || z < z0 || z > z1 => None,
-                _ => match cache.regions.get(&(x, z)) {
-                    Some(r) if r.modified >= modified => None,
-                    _ => Some(((x, z), path, modified)),
-                },
+                _ => {
+                    let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
+
+                    Some(((x, z), path)).filter(|_| cache.modified.map_or(true, |m| m < modified))
+                }
             })
         })
         .filter_map(Result::transpose)
@@ -177,11 +171,11 @@ pub fn search_regions(
 
     *count_regions += length;
 
-    cache.regions.extend(
+    cache.map_ids_by_region.extend(
         regions
             .into_par_iter()
             .progress_with(bar.clone())
-            .map(|(position, path, modified)| {
+            .map(|(position, path)| {
                 let mut map_ids = HashSet::new();
 
                 fastanvil::Region::new(File::open(&path)?)
@@ -190,7 +184,7 @@ pub fn search_regions(
                     })
                     .unwrap_or_default();
 
-                Ok((position, Referrer { map_ids, modified }))
+                Ok((position, map_ids))
             })
             .collect::<Result<HashMap<_, _>>>()?,
     );

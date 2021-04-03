@@ -51,8 +51,9 @@ struct IndexTemplate<'a> {
 }
 
 pub fn search(
+    name: &str,
     world_path: &Path,
-    cache: &mut Cache,
+    output_path: &Path,
     quiet: bool,
     bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
@@ -60,14 +61,19 @@ pub fn search(
     let mut players_searched = 0;
     let mut regions_searched = 0;
 
-    search_players(world_path, cache, quiet, &mut players_searched)?;
-    search_regions(world_path, cache, quiet, bounds, &mut regions_searched)?;
+    let cache_path = output_path.join(format!(".cache/{}.dat", name));
+    let mut cache = Cache::from_path(&cache_path)?;
+    search_players(world_path, &mut cache, quiet, &mut players_searched)?;
+    search_regions(world_path, &mut cache, quiet, bounds, &mut regions_searched)?;
+    cache.write_to(&cache_path)?;
 
+    // Pending https://github.com/rust-lang/rust/issues/75294
     let ids = cache
-        .players
-        .values()
-        .chain(cache.regions.values())
-        .flat_map(|r| r.map_ids.iter().copied())
+        .map_ids_by_player
+        .into_iter()
+        .map(|(_, v)| v)
+        .chain(cache.map_ids_by_region.into_iter().map(|(_, v)| v))
+        .flatten()
         .collect();
 
     if !quiet {
@@ -270,12 +276,7 @@ pub fn run(
         panic!("Incompatible with game version {}", level.version);
     }
 
-    let cache_path = output_path.join(format!(".cache/{}.dat", name));
-    let mut cache = Cache::from_path(&cache_path)?;
-
-    let map_ids = search(world_path, &mut cache, quiet, None)?;
-
-    cache.write_to(&cache_path)?;
+    let map_ids = search(name, world_path, output_path, quiet, None)?;
 
     let generator = format!("{} {}", name, version);
     render(

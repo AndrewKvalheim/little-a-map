@@ -11,17 +11,26 @@ use std::path::Path;
 
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
+    #[serde(skip)]
+    pub modified: Option<FileTime>,
+
     #[serde(deserialize_with = "validate_version")]
     version: String,
 
-    pub players: HashMap<usize, Referrer>,
-    pub regions: HashMap<(i32, i32), Referrer>,
+    pub map_ids_by_player: HashMap<usize, HashSet<u32>>,
+    pub map_ids_by_region: HashMap<(i32, i32), HashSet<u32>>,
 }
 
 impl Cache {
     pub fn from_path(path: &Path) -> Result<Self> {
         match File::open(path) {
-            Ok(f) => bincode::deserialize_from(GzDecoder::new(f)).or_else(|_| Ok(Self::default())),
+            Ok(f) => {
+                let mut cache =
+                    bincode::deserialize_from::<_, Self>(GzDecoder::new(f)).unwrap_or_default();
+                cache.modified = Some(FileTime::from_last_modification_time(&fs::metadata(&path)?));
+
+                Ok(cache)
+            }
             Err(e) if e.kind() == NotFound => Ok(Self::default()),
             Err(e) => Err(e.into()),
         }
@@ -37,32 +46,11 @@ impl Cache {
 impl Default for Cache {
     fn default() -> Self {
         Self {
-            players: HashMap::default(),
-            regions: HashMap::default(),
+            map_ids_by_player: HashMap::default(),
+            map_ids_by_region: HashMap::default(),
+            modified: Option::default(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
         }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct Referrer {
-    pub map_ids: HashSet<u32>,
-    #[serde(with = "FileTimeDefinition")]
-    pub modified: FileTime,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "FileTime")]
-struct FileTimeDefinition {
-    #[serde(getter = "FileTime::unix_seconds")]
-    unix_seconds: i64,
-    #[serde(getter = "FileTime::nanoseconds")]
-    nanoseconds: u32,
-}
-
-impl From<FileTimeDefinition> for FileTime {
-    fn from(d: FileTimeDefinition) -> Self {
-        Self::from_unix_time(d.unix_seconds, d.nanoseconds)
     }
 }
 
