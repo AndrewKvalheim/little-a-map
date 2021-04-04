@@ -102,64 +102,49 @@ pub fn render(
     level: &Level,
     ids: HashSet<u32>,
 ) -> Result<()> {
-    fn render_quadrant<'a>(
-        tile_count: &mut usize,
-        world_path: &Path,
-        output_path: &Path,
+    struct RenderQuadrant<'a> {
+        world_path: &'a Path,
+        output_path: &'a Path,
         force: bool,
-        bar: &ProgressBar,
+        bar: &'a ProgressBar,
         maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
-        layers: &mut Vec<Option<Vec<(&'a Map, MapData)>>>,
-        tile: &Tile,
-    ) -> Result<()> {
-        layers.push(
-            maps_by_tile
-                .get(tile)
-                .map(|maps| {
-                    maps.iter()
-                        .map(|map| Ok((map, MapData::from_world_path(world_path, map.id)?)))
-                        .collect::<Result<_>>()
-                })
-                .transpose()?,
-        );
+        layers: &'a mut Vec<Option<Vec<(&'a Map, MapData)>>>,
+    }
+    impl<'a> RenderQuadrant<'a> {
+        fn f(&mut self, tile: &Tile) -> Result<usize> {
+            let mut count = 0;
 
-        if tile.zoom == 4 {
-            if let Some(map_modified) = layers
-                .iter()
-                .flatten()
-                .flatten()
-                .map(|&(m, _)| m.modified)
-                .max()
-            {
-                if tile.render(
-                    output_path,
-                    layers.iter().flatten().flatten().rev(),
-                    map_modified,
-                    force,
-                )? {
-                    *tile_count += 1;
+            self.layers.push(
+                self.maps_by_tile
+                    .get(tile)
+                    .map(|maps| {
+                        maps.iter()
+                            .map(|m| Ok((m, MapData::from_world_path(self.world_path, m.id)?)))
+                            .collect::<Result<_>>()
+                    })
+                    .transpose()?,
+            );
+
+            if tile.zoom == 4 {
+                let maps = self.layers.iter().flatten().flatten();
+
+                if let Some(map_modified) = maps.clone().map(|&(m, _)| m.modified).max() {
+                    if tile.render(self.output_path, maps.rev(), map_modified, self.force)? {
+                        count += 1;
+                    }
+                }
+
+                self.bar.inc(1);
+            } else {
+                for quadrant in &tile.quadrants() {
+                    count += self.f(quadrant)?;
                 }
             }
 
-            bar.inc(1);
-        } else {
-            tile.quadrants().iter().try_for_each(|t| {
-                render_quadrant(
-                    tile_count,
-                    world_path,
-                    output_path,
-                    force,
-                    bar,
-                    maps_by_tile,
-                    layers,
-                    t,
-                )
-            })?;
+            self.layers.pop();
+
+            Ok(count)
         }
-
-        layers.pop();
-
-        Ok(())
     }
 
     let start_time = Instant::now();
@@ -175,21 +160,16 @@ pub fn render(
     tiles_rendered += results
         .root_tiles
         .par_iter()
-        .map(|t| -> Result<usize> {
-            let mut tile_count = 0;
-
-            render_quadrant(
-                &mut tile_count,
+        .map(|tile| {
+            RenderQuadrant {
                 world_path,
                 output_path,
                 force,
-                &bar,
-                &results.maps_by_tile,
-                &mut Vec::with_capacity(5),
-                t,
-            )?;
-
-            Ok(tile_count)
+                bar: &bar,
+                maps_by_tile: &results.maps_by_tile,
+                layers: &mut Vec::with_capacity(5),
+            }
+            .f(tile)
         })
         .try_reduce(|| 0, |a, b| Ok(a + b))?;
 
@@ -203,23 +183,16 @@ pub fn render(
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(true, |json_modified| json_modified < modified)
         {
-            let label_counts = {
-                let mut counts: HashMap<&str, usize> = HashMap::new();
+            let is_unique = {
+                let mut u = HashMap::<&str, bool>::new();
                 results
                     .banners
                     .iter()
                     .filter_map(|b| b.label.as_ref())
-                    .for_each(|label| {
-                        *counts.entry(label).or_insert(0) += 1;
+                    .for_each(|l| {
+                        u.entry(l).and_modify(|v| *v = false).or_insert(true);
                     });
-                counts
-            };
-
-            let is_unique = |banner: &Banner| -> bool {
-                banner
-                    .label
-                    .as_deref()
-                    .map_or(false, |l| matches!(label_counts.get(l), Some(1)))
+                move |b: &Banner| b.label.as_deref().map_or(false, |l| *u.get(l).unwrap())
             };
 
             serde_json::to_writer(

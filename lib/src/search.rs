@@ -4,13 +4,12 @@ use crate::cache::Cache;
 use crate::utilities::{progress_bar, read_gz};
 use anyhow::Result;
 use fastnbt::de::from_bytes;
-use filetime::FileTime;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
+use std::fs::File;
 use std::path::Path;
 
 pub type Bounds = ((i32, i32), (i32, i32));
@@ -114,11 +113,7 @@ pub fn search_players(
     let players = paths
         .into_iter()
         .enumerate()
-        .map(|(index, path)| {
-            let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
-
-            Ok(Some((index, path)).filter(|_| cache.modified.map_or(true, |m| m < modified)))
-        })
+        .map(|(index, path)| Ok(cache.is_expired_for(&path)?.then(|| (index, path))))
         .filter_map(Result::transpose)
         .collect::<Result<Vec<_>>>()?;
 
@@ -151,16 +146,12 @@ pub fn search_regions(
             let path = entry?;
             let base = path.file_stem().unwrap().to_str().unwrap();
             let mut parts = base.split('.').skip(1);
-            let x = parts.next().unwrap().parse::<i32>()?;
-            let z = parts.next().unwrap().parse::<i32>()?;
+            let x = parts.next().unwrap().parse()?;
+            let z = parts.next().unwrap().parse()?;
 
             Ok(match bounds {
                 Some(&((x0, z0), (x1, z1))) if x < x0 || x > x1 || z < z0 || z > z1 => None,
-                _ => {
-                    let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
-
-                    Some(((x, z), path)).filter(|_| cache.modified.map_or(true, |m| m < modified))
-                }
+                _ => cache.is_expired_for(&path)?.then(|| ((x, z), path)),
             })
         })
         .filter_map(Result::transpose)

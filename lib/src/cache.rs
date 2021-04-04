@@ -36,6 +36,11 @@ impl Cache {
         }
     }
 
+    pub fn is_expired_for(&self, path: &Path) -> Result<bool> {
+        let modified = FileTime::from_last_modification_time(&fs::metadata(path)?);
+        Ok(self.modified.map_or(true, |m| m < modified))
+    }
+
     pub fn write_to(&self, path: &Path) -> Result<()> {
         fs::create_dir_all(path.parent().unwrap())?;
         let gz = GzEncoder::new(File::create(path)?, Compression::default());

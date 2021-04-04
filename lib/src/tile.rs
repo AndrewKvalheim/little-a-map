@@ -86,23 +86,17 @@ static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
         .collect()
 });
 
-#[allow(
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    clippy::cast_possible_truncation
-)]
 fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, data: &MapData) {
     let (tx, ty) = tile.position();
     let (mx, my) = map.tile.position();
-    let factor = 2_i32.pow(u32::from(tile.zoom - map.tile.zoom));
-    let a = (tx - mx) / factor + (ty - my) / factor * 128;
+    let factor = 2_usize.pow(u32::from(tile.zoom - map.tile.zoom));
+    #[allow(clippy::cast_sign_loss)]
+    let a = (tx - mx) as usize / factor + (ty - my) as usize / factor * 128;
     let b = 128 - 128 / factor;
 
-    for (i, pixel) in canvas.iter_mut().enumerate().filter(|(_, &mut p)| p < 4) {
-        let j = i as i32 / factor;
-        let k = i as i32 / 128;
-
-        let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128) as usize];
+    for (i, pixel) in canvas.iter_mut().enumerate().filter(|(_, p)| **p < 4) {
+        let (j, k) = (i / factor, i / 128);
+        let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128)];
 
         if map_pixel >= 4 {
             *dirty = true;
@@ -182,7 +176,6 @@ impl Tile {
         force: bool,
     ) -> Result<bool> {
         let dir_path = output_path.join(format!("tiles/{}/{}", self.zoom, self.x));
-        fs::create_dir_all(&dir_path)?;
 
         let base_path = dir_path.join(self.y.to_string());
         let meta_path = base_path.with_extension("meta.json");
@@ -190,14 +183,14 @@ impl Tile {
         if !force
             && fs::metadata(&meta_path)
                 .map(|m| FileTime::from_last_modification_time(&m))
-                .map_or(false, |png_modified| png_modified >= maps_modified)
+                .map_or(false, |meta_modified| meta_modified >= maps_modified)
         {
             return Ok(false);
         }
 
         let mut canvas = [0; 128 * 128];
-
         let mut dirty = false;
+
         let ids = maps
             .into_iter()
             .map(|(map, image)| {
@@ -208,6 +201,7 @@ impl Tile {
             .collect::<Vec<_>>();
 
         // Metadata
+        fs::create_dir_all(&dir_path)?;
         serde_json::to_writer(&File::create(&meta_path)?, &json!({ "maps": ids }))?;
         filetime::set_file_mtime(&meta_path, maps_modified)?;
 

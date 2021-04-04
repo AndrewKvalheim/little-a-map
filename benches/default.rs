@@ -37,12 +37,12 @@ pub fn bench_search(c: &mut Criterion) {
     let output_path = PathBuf::from(env!("BENCH_OUTPUT_PATH"));
     let bounds = (
         (
-            env!("BENCH_SEARCH_REGION_X0").parse::<i32>().unwrap(),
-            env!("BENCH_SEARCH_REGION_Z0").parse::<i32>().unwrap(),
+            env!("BENCH_SEARCH_REGION_X0").parse().unwrap(),
+            env!("BENCH_SEARCH_REGION_Z0").parse().unwrap(),
         ),
         (
-            env!("BENCH_SEARCH_REGION_X1").parse::<i32>().unwrap(),
-            env!("BENCH_SEARCH_REGION_Z1").parse::<i32>().unwrap(),
+            env!("BENCH_SEARCH_REGION_X1").parse().unwrap(),
+            env!("BENCH_SEARCH_REGION_Z1").parse().unwrap(),
         ),
     );
 
