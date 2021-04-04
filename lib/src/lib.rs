@@ -55,6 +55,7 @@ pub fn search(
     world_path: &Path,
     output_path: &Path,
     quiet: bool,
+    force: bool,
     bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
@@ -62,7 +63,11 @@ pub fn search(
     let mut regions_searched = 0;
 
     let cache_path = output_path.join(format!(".cache/{}.dat", name));
-    let mut cache = Cache::from_path(&cache_path)?;
+    let mut cache = if force {
+        Cache::default()
+    } else {
+        Cache::from_path(&cache_path)?
+    };
     search_players(world_path, &mut cache, quiet, &mut players_searched)?;
     search_regions(world_path, &mut cache, quiet, bounds, &mut regions_searched)?;
     cache.write_to(&cache_path)?;
@@ -276,7 +281,7 @@ pub fn run(
         panic!("Incompatible with game version {}", level.version);
     }
 
-    let map_ids = search(name, world_path, output_path, quiet, None)?;
+    let map_ids = search(name, world_path, output_path, quiet, force, None)?;
 
     let generator = format!("{} {}", name, version);
     render(

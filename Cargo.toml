@@ -26,7 +26,6 @@ structopt = { version = "0.3", features = ["paw"] }
 
 [dev-dependencies]
 criterion = "0.3"
-glob = "0.3.0"
 
 [[bench]]
 name = "default"
