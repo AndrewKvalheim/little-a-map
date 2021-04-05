@@ -100,12 +100,7 @@ impl<'de> Deserialize<'de> for PlayerMapIds {
     }
 }
 
-pub fn search_players(
-    world_path: &Path,
-    cache: &mut Cache,
-    quiet: bool,
-    count_players: &mut usize,
-) -> Result<()> {
+pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Result<usize> {
     let pattern = world_path.join("playerdata/????????-????-????-????-????????????.dat");
     let mut paths = glob(pattern.to_str().unwrap())?.collect::<Result<Vec<_>, _>>()?;
     paths.sort();
@@ -120,8 +115,6 @@ pub fn search_players(
     let length = players.len();
     let bar = progress_bar(quiet, "Search for map items", length, 64, "players");
 
-    *count_players += length;
-
     cache.map_ids_by_player.extend(
         players
             .into_par_iter()
@@ -131,16 +124,15 @@ pub fn search_players(
     );
 
     bar.finish_and_clear();
-    Ok(())
+    Ok(length)
 }
 
 pub fn search_regions(
     world_path: &Path,
-    cache: &mut Cache,
     quiet: bool,
     bounds: Option<&Bounds>,
-    count_regions: &mut usize,
-) -> Result<()> {
+    cache: &mut Cache,
+) -> Result<usize> {
     let regions = glob(world_path.join("region/r.*.mca").to_str().unwrap())?
         .map(|entry| {
             let path = entry?;
@@ -159,8 +151,6 @@ pub fn search_regions(
 
     let length = regions.len();
     let bar = progress_bar(quiet, "Search for map items", length, 4, "regions");
-
-    *count_regions += length;
 
     cache.map_ids_by_region.extend(
         regions
@@ -181,5 +171,5 @@ pub fn search_regions(
     );
 
     bar.finish_and_clear();
-    Ok(())
+    Ok(length)
 }

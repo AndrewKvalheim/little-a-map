@@ -9,8 +9,6 @@ use std::io::BufWriter;
 use std::ops::Add;
 use std::path::Path;
 
-type Canvas = [u8; 128 * 128];
-
 const PALETTE_BASE: [[u8; 3]; 59] = [
     [0, 0, 0],
     [127, 178, 56],
@@ -86,42 +84,6 @@ static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
         .collect()
 });
 
-fn draw_behind(tile: &Tile, dirty: &mut bool, canvas: &mut Canvas, map: &Map, data: &MapData) {
-    let (tx, ty) = tile.position();
-    let (mx, my) = map.tile.position();
-    let factor = 2_usize.pow(u32::from(tile.zoom - map.tile.zoom));
-    #[allow(clippy::cast_sign_loss)]
-    let a = (tx - mx) as usize / factor + (ty - my) as usize / factor * 128;
-    let b = 128 - 128 / factor;
-
-    for (i, pixel) in canvas.iter_mut().enumerate().filter(|(_, p)| **p < 4) {
-        let (j, k) = (i / factor, i / 128);
-        let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128)];
-
-        if map_pixel >= 4 {
-            *dirty = true;
-            *pixel = map_pixel;
-        }
-    }
-}
-
-fn shrink_palette(canvas: &mut Canvas) -> Vec<u8> {
-    let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
-    let mut map = HashMap::with_capacity(PALETTE_LEN);
-    let mut next = 0;
-
-    for pixel in canvas.iter_mut() {
-        *pixel = *map.entry(*pixel).or_insert_with(|| {
-            let (i, j) = (*pixel as usize * 3, next);
-            palette.extend(&PALETTE[i..i + 3]);
-            next += 1;
-            j
-        });
-    }
-
-    palette
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Tile {
     pub zoom: u8,
@@ -188,13 +150,12 @@ impl Tile {
             return Ok(false);
         }
 
-        let mut canvas = [0; 128 * 128];
-        let mut dirty = false;
+        let mut canvas = Canvas::default();
 
         let ids = maps
             .into_iter()
-            .map(|(map, image)| {
-                draw_behind(self, &mut dirty, &mut canvas, map, image);
+            .map(|(map, data)| {
+                canvas.draw(self, map, data);
 
                 map.id
             })
@@ -206,8 +167,8 @@ impl Tile {
         filetime::set_file_mtime(&meta_path, maps_modified)?;
 
         // Image
-        if dirty {
-            let palette = shrink_palette(&mut canvas);
+        if canvas.is_dirty {
+            let palette = canvas.shrink_palette();
 
             let png_path = base_path.with_extension("png");
             let mut encoder = png::Encoder::new(BufWriter::new(File::create(&png_path)?), 128, 128);
@@ -216,7 +177,7 @@ impl Tile {
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
             encoder.set_palette(palette);
-            encoder.write_header()?.write_image_data(&canvas)?;
+            encoder.write_header()?.write_image_data(&canvas.pixels)?;
             filetime::set_file_mtime(&png_path, maps_modified)?;
         }
 
@@ -242,6 +203,59 @@ impl Add<(i32, i32)> for &Tile {
             x: self.x + x,
             y: self.y + y,
             ..*self
+        }
+    }
+}
+
+struct Canvas {
+    is_dirty: bool,
+    pixels: [u8; 128 * 128],
+}
+
+impl Canvas {
+    fn draw(&mut self, tile: &Tile, map: &Map, data: &MapData) {
+        let (tx, ty) = tile.position();
+        let (mx, my) = map.tile.position();
+        let factor = 2_usize.pow(u32::from(tile.zoom - map.tile.zoom));
+        #[allow(clippy::cast_sign_loss)]
+        let a = (tx - mx) as usize / factor + (ty - my) as usize / factor * 128;
+        let b = 128 - 128 / factor;
+
+        for (i, pixel) in self.pixels.iter_mut().enumerate().filter(|(_, p)| **p < 4) {
+            let (j, k) = (i / factor, i / 128);
+            let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128)];
+
+            if map_pixel >= 4 {
+                self.is_dirty = true;
+                *pixel = map_pixel;
+            }
+        }
+    }
+
+    fn shrink_palette(&mut self) -> Vec<u8> {
+        let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
+        let mut map = HashMap::with_capacity(PALETTE_LEN);
+        let mut next = 0;
+
+        for pixel in self.pixels.iter_mut() {
+            *pixel = *map.entry(*pixel).or_insert_with(|| {
+                let (i, j) = (*pixel as usize * 3, next);
+                palette.extend(&PALETTE[i..i + 3]);
+                next += 1;
+                j
+            });
+        }
+
+        palette
+    }
+}
+
+// Pending https://github.com/rust-lang/rust/issues/61415
+impl Default for Canvas {
+    fn default() -> Self {
+        Self {
+            is_dirty: bool::default(),
+            pixels: [u8::default(); 128 * 128],
         }
     }
 }

@@ -59,8 +59,6 @@ pub fn search(
     bounds: Option<&Bounds>,
 ) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
-    let mut players_searched = 0;
-    let mut regions_searched = 0;
 
     let cache_path = output_path.join(format!(".cache/{}.dat", name));
     let mut cache = if force {
@@ -68,18 +66,9 @@ pub fn search(
     } else {
         Cache::from_path(&cache_path)?
     };
-    search_players(world_path, &mut cache, quiet, &mut players_searched)?;
-    search_regions(world_path, &mut cache, quiet, bounds, &mut regions_searched)?;
+    let players_searched = search_players(world_path, quiet, &mut cache)?;
+    let regions_searched = search_regions(world_path, quiet, bounds, &mut cache)?;
     cache.write_to(&cache_path)?;
-
-    // Pending https://github.com/rust-lang/rust/issues/75294
-    let ids = cache
-        .map_ids_by_player
-        .into_iter()
-        .map(|(_, v)| v)
-        .chain(cache.map_ids_by_region.into_iter().map(|(_, v)| v))
-        .flatten()
-        .collect();
 
     if !quiet {
         println!(
@@ -90,7 +79,14 @@ pub fn search(
         );
     }
 
-    Ok(ids)
+    // Pending https://github.com/rust-lang/rust/issues/75294
+    Ok(cache
+        .map_ids_by_player
+        .into_iter()
+        .map(|(_, v)| v)
+        .chain(cache.map_ids_by_region.into_iter().map(|(_, v)| v))
+        .flatten()
+        .collect())
 }
 
 pub fn render(
@@ -126,10 +122,10 @@ pub fn render(
             );
 
             if tile.zoom == 4 {
-                let maps = self.layers.iter().flatten().flatten();
+                let maps = || self.layers.iter().flatten().flatten();
 
-                if let Some(map_modified) = maps.clone().map(|&(m, _)| m.modified).max() {
-                    if tile.render(self.output_path, maps.rev(), map_modified, self.force)? {
+                if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
+                    if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
                         count += 1;
                     }
                 }
