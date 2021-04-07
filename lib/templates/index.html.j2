@@ -136,6 +136,10 @@
   <body>
     <div id="map"></div>
 
+    <div style="display: none;">
+      <svg id="banner" viewBox="0 0 6 8"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>
+    </div>
+
     <script>
       (function () {
         const isDebug = window.location.hash === "#debug";
@@ -174,7 +178,7 @@
             new LinksControl(collection).addTo(map);
           });
 
-        const bannerSvg = `<svg viewBox="0 0 6 8" xmlns="http://www.w3.org/2000/svg"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>`;
+        const bannerSvg = `<svg viewBox="0 0 6 8"><use href="#banner"></svg>`;
         const bannerIcon = (color, name) =>
           L.divIcon({
             className: `leaflet-marker-icon-banner banner-${color}`,
