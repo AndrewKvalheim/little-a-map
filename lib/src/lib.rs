@@ -1,4 +1,14 @@
-#![warn(clippy::nursery, clippy::pedantic)]
+#![warn(
+    clippy::nursery,
+    clippy::pedantic,
+    rust_2018_idioms,
+    single_use_lifetimes,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_crate_dependencies,
+    unused_lifetimes,
+    unused_qualifications
+)]
 #![allow(
     clippy::implicit_hasher,
     clippy::missing_const_for_fn,
@@ -10,6 +20,7 @@
 )]
 
 // Workaround for https://github.com/rust-lang/rust/issues/55779
+#[allow(unused_extern_crates)]
 extern crate serde;
 
 mod banner;
@@ -106,7 +117,7 @@ pub fn render(
         maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
         layers: &'a mut Vec<Option<Vec<(&'a Map, MapData)>>>,
     }
-    impl<'a> RenderQuadrant<'a> {
+    impl RenderQuadrant<'_> {
         fn f(&mut self, tile: &Tile) -> Result<usize> {
             let mut count = 0;
 

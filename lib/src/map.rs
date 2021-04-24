@@ -26,10 +26,10 @@ impl<'de> Deserialize<'de> for Dimension {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct DimensionVisitor;
 
-        impl<'de> Visitor<'de> for DimensionVisitor {
+        impl Visitor<'_> for DimensionVisitor {
             type Value = Dimension;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("integer or string")
             }
 
