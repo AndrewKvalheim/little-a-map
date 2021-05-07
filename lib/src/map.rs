@@ -160,7 +160,7 @@ impl MapScan {
                         .maps_by_tile
                         .entry(tile.clone())
                         .or_insert_with(BTreeSet::new)
-                        .insert(Map { id, modified, tile });
+                        .insert(Map { modified, id, tile });
                 }
 
                 Ok(results)

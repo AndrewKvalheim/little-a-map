@@ -54,6 +54,8 @@ impl<'de> Deserialize<'de> for ChunkMapIds {
 struct ItemMapId(Option<u32>);
 impl<'de> Deserialize<'de> for ItemMapId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #![allow(clippy::use_self)] // Pending https://github.com/rust-lang/rust-clippy/issues/6902
+
         #[derive(Deserialize)]
         #[serde(tag = "id")]
         enum Internal {
@@ -159,7 +161,7 @@ pub fn search_regions(
             .map(|(position, path)| {
                 let mut map_ids = HashSet::new();
 
-                fastanvil::Region::new(File::open(&path)?)
+                fastanvil::RegionBuffer::new(File::open(&path)?)
                     .for_each_chunk(|_, _, nbt| {
                         map_ids.extend(from_bytes::<ChunkMapIds>(nbt).unwrap().0);
                     })
