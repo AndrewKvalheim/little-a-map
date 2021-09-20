@@ -19,5 +19,5 @@ fn main(args: Args) -> Result<()> {
     let name = env!("CARGO_PKG_NAME");
     let version = env!("CARGO_PKG_VERSION");
 
-    lib::run(&name, &version, &world_path, &output_path, false, false)
+    lib::run(name, version, &world_path, &output_path, false, false)
 }

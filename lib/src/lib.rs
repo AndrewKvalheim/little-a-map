@@ -90,12 +90,10 @@ pub fn search(
         );
     }
 
-    // Pending https://github.com/rust-lang/rust/issues/75294
     Ok(cache
         .map_ids_by_player
-        .into_iter()
-        .map(|(_, v)| v)
-        .chain(cache.map_ids_by_region.into_iter().map(|(_, v)| v))
+        .into_values()
+        .chain(cache.map_ids_by_region.into_values())
         .flatten()
         .collect())
 }
