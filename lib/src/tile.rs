@@ -9,7 +9,7 @@ use std::io::BufWriter;
 use std::ops::Add;
 use std::path::Path;
 
-const PALETTE_BASE: [[u8; 3]; 59] = [
+const PALETTE_BASE: [[u8; 3]; 62] = [
     [0, 0, 0],
     [127, 178, 56],
     [247, 233, 163],
@@ -69,6 +69,9 @@ const PALETTE_BASE: [[u8; 3]; 59] = [
     [58, 142, 140],
     [86, 44, 62],
     [20, 180, 133],
+    [100, 100, 100],
+    [216, 175, 147],
+    [127, 167, 150],
 ];
 const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
 const PALETTE_LEN: usize = PALETTE_BASE.len() * PALETTE_FACTORS.len();

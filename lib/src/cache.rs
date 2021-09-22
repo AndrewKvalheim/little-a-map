@@ -9,6 +9,8 @@ use std::fs::{self, File};
 use std::io::ErrorKind::NotFound;
 use std::path::Path;
 
+pub type MapIdsByRegion = HashMap<(i32, i32), HashSet<u32>>;
+
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
     #[serde(skip)]
@@ -17,8 +19,9 @@ pub struct Cache {
     #[serde(deserialize_with = "validate_version")]
     version: String,
 
+    pub map_ids_by_entities_region: MapIdsByRegion,
+    pub map_ids_by_level_region: MapIdsByRegion,
     pub map_ids_by_player: HashMap<usize, HashSet<u32>>,
-    pub map_ids_by_region: HashMap<(i32, i32), HashSet<u32>>,
 }
 
 impl Cache {
@@ -51,8 +54,9 @@ impl Cache {
 impl Default for Cache {
     fn default() -> Self {
         Self {
+            map_ids_by_entities_region: HashMap::default(),
+            map_ids_by_level_region: HashMap::default(),
             map_ids_by_player: HashMap::default(),
-            map_ids_by_region: HashMap::default(),
             modified: Option::default(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
         }

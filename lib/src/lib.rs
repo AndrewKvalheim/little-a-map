@@ -40,7 +40,7 @@ use indicatif::ProgressBar;
 use level::Level;
 use map::{Map, MapData, MapScan};
 use rayon::prelude::*;
-use search::{search_players, search_regions, Bounds};
+use search::{search_entities, search_level, search_players, Bounds};
 use semver::VersionReq;
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -51,7 +51,7 @@ use std::time::Instant;
 use tile::Tile;
 use utilities::progress_bar;
 
-const COMPATIBLE_VERSIONS: &str = "~1.16.2";
+const COMPATIBLE_VERSIONS: &str = "~1.17.1";
 
 #[derive(Template)]
 #[template(path = "index.html.j2")]
@@ -78,22 +78,25 @@ pub fn search(
         Cache::from_path(&cache_path)?
     };
     let players_searched = search_players(world_path, quiet, &mut cache)?;
-    let regions_searched = search_regions(world_path, quiet, bounds, &mut cache)?;
+    let entity_regions_searched = search_entities(world_path, quiet, bounds, &mut cache)?;
+    let level_regions_searched = search_level(world_path, quiet, bounds, &mut cache)?;
     cache.write_to(&cache_path)?;
 
     if !quiet {
         println!(
-            "Searched {} regions and {} players in {:.2}s",
-            regions_searched,
+            "Searched {} level regions, {} entity regions, and {} players in {:.2}s",
+            level_regions_searched,
+            entity_regions_searched,
             players_searched,
             start_time.elapsed().as_secs_f32()
         );
     }
 
     Ok(cache
-        .map_ids_by_player
+        .map_ids_by_entities_region
         .into_values()
-        .chain(cache.map_ids_by_region.into_values())
+        .chain(cache.map_ids_by_level_region.into_values())
+        .chain(cache.map_ids_by_player.into_values())
         .flatten()
         .collect())
 }
