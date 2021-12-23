@@ -1,12 +1,18 @@
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-pub fn progress_bar(quiet: bool, message: &str, len: usize, delta: u64, unit: &str) -> ProgressBar {
-    if quiet || len as u64 <= delta {
+pub fn progress_bar(
+    quiet: bool,
+    message: impl Into<Cow<'static, str>>,
+    len: usize,
+    unit: &str,
+) -> ProgressBar {
+    if quiet {
         ProgressBar::hidden()
     } else {
         let bar = ProgressBar::new(len as u64);
@@ -16,7 +22,7 @@ pub fn progress_bar(quiet: bool, message: &str, len: usize, delta: u64, unit: &s
             unit = unit
         )));
 
-        bar.set_draw_delta(delta);
+        bar.set_draw_rate(10);
         bar.set_message(message);
 
         bar

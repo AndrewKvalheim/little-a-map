@@ -174,7 +174,7 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
         .collect::<Result<Vec<_>>>()?;
 
     let length = regions.len();
-    let bar = progress_bar(quiet, "Search for map items", length, 4, "regions");
+    let bar = progress_bar(quiet, "Search for map items", length, "regions");
 
     let map_ids_by_region = regions
         .into_par_iter()
@@ -209,7 +209,7 @@ pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Resu
         .collect::<Result<Vec<_>>>()?;
 
     let length = players.len();
-    let bar = progress_bar(quiet, "Search for map items", length, 64, "players");
+    let bar = progress_bar(quiet, "Search for map items", length, "players");
     let ids = players
         .into_par_iter()
         .progress_with(bar.clone())

@@ -163,7 +163,7 @@ pub fn render(
     maps_rendered += results.maps_by_tile.len();
 
     let length = results.root_tiles.len() * 4_usize.pow(4);
-    let bar = progress_bar(quiet, "Render", length, 4_u64.pow(3), "tiles");
+    let bar = progress_bar(quiet, "Render", length, "tiles");
 
     tiles_rendered += results
         .root_tiles
