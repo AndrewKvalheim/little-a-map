@@ -258,9 +258,11 @@ pub fn run(
     force: bool,
 ) -> Result<()> {
     let level = Level::from_world_path(world_path)?;
-    if !VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version) {
-        panic!("Incompatible with game version {}", level.version);
-    }
+    assert!(
+        VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version),
+        "Incompatible with game version {}",
+        level.version
+    );
 
     let map_ids = search(name, world_path, output_path, quiet, force, None)?;
 
