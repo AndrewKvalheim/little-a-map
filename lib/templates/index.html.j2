@@ -148,7 +148,7 @@
           attributionControl: false,
           bounceAtZoomLimits: false,
           boxZoom: false,
-          center: [{{ spawn_z }}, {{ spawn_x }}],
+          center: {{ center|json }},
           crs: L.extend({}, L.CRS.Simple, {
             transformation: new L.Transformation(1, 64, 1, 64),
           }),

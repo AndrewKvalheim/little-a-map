@@ -56,9 +56,8 @@ const COMPATIBLE_VERSIONS: &str = "~1.18.1";
 #[derive(Template)]
 #[template(path = "index.html.j2")]
 struct IndexTemplate<'a> {
+    center: [i32; 2],
     generator: &'a str,
-    spawn_x: i32,
-    spawn_z: i32,
 }
 
 pub fn search(
@@ -227,9 +226,8 @@ pub fn render(
     }
 
     let index_template = IndexTemplate {
+        center: [level.spawn_z, level.spawn_x],
         generator,
-        spawn_x: level.spawn_x,
-        spawn_z: level.spawn_z,
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
