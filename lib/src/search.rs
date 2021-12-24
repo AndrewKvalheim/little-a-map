@@ -97,29 +97,28 @@ struct MapIdsOfLevelChunk(HashSet<u32>);
 impl<'de> Deserialize<'de> for MapIdsOfLevelChunk {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct Internal {
-            level: Level,
+        #[serde(untagged)]
+        enum Chunk {
+            V117(V117),
+            V118(V118),
+        }
+
+        #[derive(serde_query::Deserialize)]
+        struct V117 {
+            #[query(".Level.TileEntities")]
+            block_entities: Vec<MapIdsOfEntity>,
         }
 
         #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct Level {
-            entities: Option<Vec<MapIdsOfEntity>>,
-            tile_entities: Vec<MapIdsOfEntity>,
+        struct V118 {
+            block_entities: Vec<MapIdsOfEntity>,
         }
 
-        let internal = Internal::deserialize(deserializer)?;
-        Ok(Self(
-            internal
-                .level
-                .entities
-                .into_iter()
-                .flatten()
-                .chain(internal.level.tile_entities)
-                .flat_map(|e| e.0)
-                .collect(),
-        ))
+        let entities = match Chunk::deserialize(deserializer)? {
+            Chunk::V117(c) => c.block_entities,
+            Chunk::V118(c) => c.block_entities,
+        };
+        Ok(Self(entities.into_iter().flat_map(|e| e.0).collect()))
     }
 }
 impl ContainsMapIds for MapIdsOfLevelChunk {

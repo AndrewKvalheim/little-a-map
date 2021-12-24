@@ -183,6 +183,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 
 [[package]]
+name = "cesu8"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -485,14 +491,15 @@ checksum = "a246d82be1c9d791c5dfde9a2bd045fc3cbba3fa2b11ad558f27d01712f00569"
 
 [[package]]
 name = "fastanvil"
-version = "0.17.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bced6118a206a80b7e16a6cfdc33f2c346864f2825ee4f67ba6457d6c8a1ddf1"
+checksum = "c206387b129bd3385f5b05a13d0118eedb9f617848f4af5f6f43fc90c8b59910"
 dependencies = [
  "bit_field",
  "byteorder",
  "fastnbt",
  "flate2",
+ "hematite-nbt",
  "image",
  "lazy_static",
  "log",
@@ -502,13 +509,13 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "0.17.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6d0e1114ddb912cbffe6057294ecefd11aeec30417f1e486fbb7fad1e0f0375"
+checksum = "61a5f728dc3e8c3154312f657d6cc9afd081b8c1becddc62ed67448e0a19adfd"
 dependencies = [
  "byteorder",
+ "cesu8",
  "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -577,6 +584,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
 dependencies = [
  "unicode-segmentation",
+]
+
+[[package]]
+name = "hematite-nbt"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670d0784ee67cfb57393dc1837867d2951f9a59ca7db99a653499c854f745739"
+dependencies = [
+ "byteorder",
+ "cesu8",
+ "flate2",
+ "serde",
 ]
 
 [[package]]

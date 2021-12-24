@@ -51,7 +51,7 @@ use std::time::Instant;
 use tile::Tile;
 use utilities::progress_bar;
 
-const COMPATIBLE_VERSIONS: &str = "~1.17.1";
+const COMPATIBLE_VERSIONS: &str = "~1.18.1";
 
 #[derive(Template)]
 #[template(path = "index.html.j2")]
