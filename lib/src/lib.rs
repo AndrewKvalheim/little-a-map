@@ -70,7 +70,7 @@ pub fn search(
 ) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
 
-    let cache_path = output_path.join(format!(".cache/{}.dat", name));
+    let cache_path = output_path.join(format!(".cache/{name}.dat"));
     let mut cache = if force {
         Cache::default()
     } else {
@@ -83,10 +83,7 @@ pub fn search(
 
     if !quiet {
         println!(
-            "Searched {} level regions, {} entity regions, and {} players in {:.2}s",
-            level_regions_searched,
-            entity_regions_searched,
-            players_searched,
+            "Searched {level_regions_searched} level regions, {entity_regions_searched} entity regions, and {players_searched} players in {:.2}s",
             start_time.elapsed().as_secs_f32()
         );
     }
@@ -236,9 +233,7 @@ pub fn render(
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {} tiles from {} map items in {:.2}s",
-                tiles_rendered,
-                maps_rendered,
+                "Rendered {tiles_rendered} tiles from {maps_rendered} map items in {:.2}s",
                 start_time.elapsed().as_secs_f32()
             );
         }
@@ -264,7 +259,7 @@ pub fn run(
 
     let map_ids = search(name, world_path, output_path, quiet, force, None)?;
 
-    let generator = format!("{} {}", name, version);
+    let generator = format!("{name} {version}");
     render(
         &generator,
         world_path,

@@ -96,7 +96,7 @@ impl<'de> Deserialize<'de> for MapData {
 impl MapData {
     pub fn from_world_path(world_path: &Path, id: u32) -> Result<Self> {
         Ok(from_bytes(&read_gz(
-            &world_path.join(format!("data/map_{}.dat", id)),
+            &world_path.join(format!("data/map_{id}.dat")),
         )?)?)
     }
 }
@@ -145,7 +145,7 @@ impl MapScan {
 
         ids.into_par_iter()
             .map(move |id| -> Result<Self> {
-                let path = data_path.join(format!("map_{}.dat", id));
+                let path = data_path.join(format!("map_{id}.dat"));
                 let mut results = Self::default();
 
                 if let Meta::Normal { banners, tile } = from_bytes(&read_gz(&path)?)? {
