@@ -188,12 +188,12 @@ impl Tile {
     }
 
     pub fn root(&self) -> Self {
-        let position = self.position();
+        let (x, y) = self.position();
 
         Self {
             zoom: 0,
-            x: position.0.div_euclid(2048),
-            y: position.1.div_euclid(2048),
+            x: x.div_euclid(2048),
+            y: y.div_euclid(2048),
         }
     }
 }
@@ -270,7 +270,7 @@ mod test {
     #[test]
     fn from_position() {
         fn expect(scale: u8, cx: i32, cz: i32, zoom: u8, x: i32, y: i32) {
-            assert_eq!(Tile::from_position(scale, cx, cz), Tile::new(zoom, x, y))
+            assert_eq!(Tile::from_position(scale, cx, cz), Tile::new(zoom, x, y));
         }
 
         expect(4, 1, 1, 0, 0, 0);
@@ -285,21 +285,19 @@ mod test {
 
     #[test]
     fn position() {
+        fn expect(scale: u8, cx: i32, cz: i32, x: i32, y: i32) {
+            assert_eq!(Tile::from_position(scale, cx, cz).position(), (x, y));
+        }
+
         assert_eq!(Tile::new(0, 0, 0).position(), (0, 0));
-        assert_eq!(Tile::from_position(0, 127, 127).position(), (0, 0));
-        assert_eq!(Tile::from_position(0, 128, 128).position(), (128, 128));
-        assert_eq!(Tile::from_position(0, -128, -128).position(), (-128, -128));
-        assert_eq!(Tile::from_position(0, -129, -129).position(), (-256, -256));
-        assert_eq!(Tile::from_position(4, 2047, 2047).position(), (0, 0));
-        assert_eq!(Tile::from_position(4, 2048, 2048).position(), (2048, 2048));
-        assert_eq!(
-            Tile::from_position(4, -2048, -2048).position(),
-            (-2048, -2048)
-        );
-        assert_eq!(
-            Tile::from_position(4, -2049, -2049).position(),
-            (-4096, -4096)
-        );
+        expect(0, 127, 127, 0, 0);
+        expect(0, 128, 128, 128, 128);
+        expect(0, -128, -128, -128, -128);
+        expect(0, -129, -129, -256, -256);
+        expect(4, 2047, 2047, 0, 0);
+        expect(4, 2048, 2048, 2048, 2048);
+        expect(4, -2048, -2048, -2048, -2048);
+        expect(4, -2049, -2049, -4096, -4096);
     }
 
     #[test]

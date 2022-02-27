@@ -63,7 +63,6 @@ impl Default for Cache {
     }
 }
 
-#[allow(single_use_lifetimes)] // Pending https://github.com/rust-lang/rust/issues/60554
 fn validate_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     struct VersionVisitor;
 

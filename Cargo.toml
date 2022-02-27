@@ -8,7 +8,7 @@ description = "Players can have little a map—if they've surveyed the area in-g
 authors = ["Andrew Kvalheim <Andrew@Kvalhe.im>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
-edition = "2018"
+edition = "2021"
 
 [workspace]
 members = ["lib"]

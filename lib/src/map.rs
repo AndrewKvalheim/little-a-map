@@ -11,7 +11,6 @@ use rayon::prelude::*;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::convert::TryInto;
 use std::fmt;
 use std::fs;
 use std::path::Path;

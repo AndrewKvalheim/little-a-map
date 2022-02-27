@@ -9,18 +9,18 @@ use std::path::Path;
 pub fn progress_bar(
     quiet: bool,
     message: impl Into<Cow<'static, str>>,
-    len: usize,
+    total: usize,
     unit: &str,
 ) -> ProgressBar {
     if quiet {
         ProgressBar::hidden()
     } else {
-        let bar = ProgressBar::new(len as u64);
+        let bar = ProgressBar::new(total as u64);
 
-        bar.set_style(ProgressStyle::default_bar().template(&format!(
-            "{{msg}} {{wide_bar}} {{pos}}/{{len}} {unit}",
-            unit = unit
-        )));
+        bar.set_style(
+            ProgressStyle::default_bar()
+                .template(&format!("{{msg}} {{wide_bar}} {{pos}}/{{len}} {unit}")),
+        );
 
         bar.set_draw_rate(10);
         bar.set_message(message);

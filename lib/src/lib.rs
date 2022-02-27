@@ -1,27 +1,11 @@
-#![warn(
-    clippy::nursery,
-    clippy::pedantic,
-    rust_2018_idioms,
-    single_use_lifetimes,
-    trivial_casts,
-    trivial_numeric_casts,
-    unused_crate_dependencies,
-    unused_lifetimes,
-    unused_qualifications
-)]
+#![warn(clippy::nursery, clippy::pedantic)]
 #![allow(
     clippy::implicit_hasher,
     clippy::missing_const_for_fn,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
-    clippy::non_ascii_literal,
     clippy::too_many_lines
 )]
-
-// Workaround for https://github.com/rust-lang/rust/issues/55779
-#[allow(unused_extern_crates)]
-extern crate serde;
 
 mod banner;
 mod cache;
