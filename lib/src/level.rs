@@ -1,7 +1,7 @@
 use crate::utilities::read_gz;
 use anyhow::Result;
 use fastnbt::de::from_bytes;
-use semver::Version;
+use forgiving_semver::Version;
 use std::path::Path;
 
 #[derive(serde_query::Deserialize)]
