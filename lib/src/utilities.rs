@@ -18,11 +18,12 @@ pub fn progress_bar(
         let bar = ProgressBar::new(total as u64);
 
         bar.set_style(
-            ProgressStyle::default_bar()
-                .template(&format!("{{msg}} {{wide_bar}} {{pos}}/{{len}} {unit}")),
+            ProgressStyle::with_template(&format!(
+                "{{msg}} {{wide_bar}} {{human_pos}}/{{human_len}} {unit}"
+            ))
+            .unwrap(),
         );
 
-        bar.set_draw_rate(10);
         bar.set_message(message);
 
         bar
