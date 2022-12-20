@@ -73,16 +73,18 @@ const PALETTE_BASE: [[u8; 3]; 62] = [
     [216, 175, 147],
     [127, 167, 150],
 ];
-const PALETTE_FACTORS: [u32; 4] = [180, 220, 255, 135];
+const PALETTE_FACTORS: [u8; 4] = [180, 220, 255, 135];
 const PALETTE_LEN: usize = PALETTE_BASE.len() * PALETTE_FACTORS.len();
-#[allow(clippy::cast_possible_truncation)]
 static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
     PALETTE_BASE
         .iter()
         .flat_map(|rgb| {
-            PALETTE_FACTORS
-                .iter()
-                .flat_map(move |&f| rgb.iter().map(move |&v| (u32::from(v) * f / 255) as u8))
+            PALETTE_FACTORS.iter().flat_map(move |&f| {
+                rgb.iter().map(
+                    #[allow(clippy::cast_possible_truncation)] // 255×255 < 2^16
+                    move |&v| (u16::from(v) * u16::from(f) / 255) as u8,
+                )
+            })
         })
         .collect()
 });
@@ -217,10 +219,9 @@ struct Canvas {
 
 impl Canvas {
     fn draw(&mut self, tile: &Tile, map: &Map, data: &MapData) {
-        let (tx, ty) = tile.position();
-        let (mx, my) = map.tile.position();
+        let ((tx, ty), (mx, my)) = (tile.position(), map.tile.position());
         let factor = 2_usize.pow(u32::from(tile.zoom - map.tile.zoom));
-        #[allow(clippy::cast_sign_loss)]
+        #[allow(clippy::cast_sign_loss)] // tile ⊆ map
         let a = (tx - mx) as usize / factor + (ty - my) as usize / factor * 128;
         let b = 128 - 128 / factor;
 
