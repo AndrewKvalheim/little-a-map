@@ -1,6 +1,6 @@
 use crate::utilities::read_gz;
 use anyhow::Result;
-use fastnbt::de::from_bytes;
+use fastnbt::from_bytes;
 use forgiving_semver::Version;
 use std::path::Path;
 

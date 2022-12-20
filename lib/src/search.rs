@@ -3,7 +3,7 @@
 use crate::cache::{Cache, MapIdsByRegion};
 use crate::utilities::{progress_bar, read_gz};
 use anyhow::Result;
-use fastnbt::de::from_bytes;
+use fastnbt::from_bytes;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
@@ -179,11 +179,9 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
         .map(|(position, path)| {
             let mut map_ids = HashSet::new();
 
-            fastanvil::RegionBuffer::new(File::open(path)?)
-                .for_each_chunk(|_, _, nbt| {
-                    map_ids.extend(from_bytes::<T>(nbt).unwrap().map_ids());
-                })
-                .unwrap_or_default();
+            for chunk in fastanvil::Region::from_stream(File::open(path)?)?.iter() {
+                map_ids.extend(from_bytes::<T>(&chunk?.data).unwrap().map_ids());
+            }
 
             Ok((position, map_ids))
         })

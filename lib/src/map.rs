@@ -5,7 +5,7 @@ use crate::tile::Tile;
 use crate::utilities::read_gz;
 use anyhow::Result;
 use derivative::Derivative;
-use fastnbt::de::from_bytes;
+use fastnbt::from_bytes;
 use filetime::FileTime;
 use rayon::prelude::*;
 use serde::de::{self, Unexpected, Visitor};
