@@ -106,7 +106,7 @@ impl Tile {
     }
 
     #[cfg(test)]
-    pub fn new(zoom: u8, x: i32, y: i32) -> Self {
+    pub const fn new(zoom: u8, x: i32, y: i32) -> Self {
         Self { zoom, x, y }
     }
 
@@ -116,7 +116,7 @@ impl Tile {
         (size * self.x, size * self.y)
     }
 
-    pub fn quadrants(&self) -> [Self; 4] {
+    pub const fn quadrants(&self) -> [Self; 4] {
         let zoom = self.zoom + 1;
         let x = self.x * 2;
         let y = self.y * 2;

@@ -1,7 +1,6 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![allow(
     clippy::implicit_hasher,
-    clippy::missing_const_for_fn,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::too_many_lines

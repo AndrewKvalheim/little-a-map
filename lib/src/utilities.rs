@@ -31,7 +31,7 @@ pub fn progress_bar(
 }
 
 pub fn read_gz(path: &Path) -> Result<Vec<u8>> {
-    let mut decoder = GzDecoder::new(File::open(&path)?);
+    let mut decoder = GzDecoder::new(File::open(path)?);
     let mut data = Vec::new();
 
     decoder.read_to_end(&mut data)?;

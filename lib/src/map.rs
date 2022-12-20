@@ -192,7 +192,7 @@ mod test {
 
     #[test]
     fn compare() {
-        fn map(id: u32, s: i64, x: i32) -> Map {
+        const fn map(id: u32, s: i64, x: i32) -> Map {
             Map {
                 id,
                 modified: FileTime::from_unix_time(s, 0),

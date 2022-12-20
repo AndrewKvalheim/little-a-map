@@ -30,7 +30,7 @@ impl Cache {
             Ok(f) => {
                 let mut cache =
                     bincode::deserialize_from::<_, Self>(GzDecoder::new(f)).unwrap_or_default();
-                cache.modified = Some(FileTime::from_last_modification_time(&fs::metadata(&path)?));
+                cache.modified = Some(FileTime::from_last_modification_time(&fs::metadata(path)?));
 
                 Ok(cache)
             }
