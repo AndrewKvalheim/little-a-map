@@ -1,5 +1,6 @@
 use derivative::Derivative;
 use serde::{Deserialize, Deserializer};
+use serde_with::{json::JsonString, serde_as};
 
 #[derive(Debug, Derivative, Eq, PartialOrd, Ord)]
 #[derivative(PartialEq)]
@@ -16,12 +17,12 @@ pub struct Banner {
 
 impl<'de> Deserialize<'de> for Banner {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[serde_as]
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct Internal {
             color: String,
-            #[serde(default)]
-            #[serde(with = "serde_with::json::nested")]
+            #[serde_as(as = "Option<JsonString<_>>")]
             name: Option<Name>,
             pos: Pos,
         }
