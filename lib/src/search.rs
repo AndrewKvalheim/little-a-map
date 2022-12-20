@@ -166,7 +166,7 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
 
             Ok(match bounds {
                 Some(&((x0, z0), (x1, z1))) if x < x0 || x > x1 || z < z0 || z > z1 => None,
-                _ => cache.is_expired_for(&path)?.then(|| ((x, z), path)),
+                _ => cache.is_expired_for(&path)?.then_some(((x, z), path)),
             })
         })
         .filter_map(Result::transpose)
@@ -203,7 +203,7 @@ pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Resu
     let players = paths
         .into_iter()
         .enumerate()
-        .map(|(index, path)| Ok(cache.is_expired_for(&path)?.then(|| (index, path))))
+        .map(|(index, path)| Ok(cache.is_expired_for(&path)?.then_some((index, path))))
         .filter_map(Result::transpose)
         .collect::<Result<Vec<_>>>()?;
 
