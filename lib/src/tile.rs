@@ -268,6 +268,19 @@ mod test {
     use super::*;
 
     #[test]
+    fn derive_palette() {
+        assert_eq!(PALETTE[0..12], [0; 12]);
+        assert_eq!(PALETTE[12..15], [89, 125, 39]);
+        assert_eq!(PALETTE[15..18], [109, 153, 48]);
+        assert_eq!(PALETTE[18..21], [127, 178, 56]);
+        assert_eq!(PALETTE[21..24], [67, 94, 29]);
+        assert_eq!(PALETTE[96..99], [180, 180, 180]);
+        assert_eq!(PALETTE[99..102], [220, 220, 220]);
+        assert_eq!(PALETTE[102..105], [255, 255, 255]);
+        assert_eq!(PALETTE[105..108], [135, 135, 135]);
+    }
+
+    #[test]
     fn from_position() {
         fn expect(scale: u8, cx: i32, cz: i32, zoom: u8, x: i32, y: i32) {
             assert_eq!(Tile::from_position(scale, cx, cz), Tile::new(zoom, x, y));
