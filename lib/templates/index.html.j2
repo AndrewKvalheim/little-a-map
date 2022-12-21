@@ -171,8 +171,18 @@
           .then((r) => r.json())
           .then((collection) => {
             L.geoJSON(collection, {
-              pointToLayer: ({ properties: { color, name } }, coordinates) =>
-                L.marker(coordinates, { icon: bannerIcon(color, name) }),
+              pointToLayer: ({ properties: { color, maps, name } }, coordinates) => {
+                const marker = L.marker(coordinates, { icon: bannerIcon(color, name) });
+
+                if (isDebug) {
+                  const ids = maps.map((id) => `#${id}`);
+                  const { lng: x, lat: z } = coordinates;
+                  const html = `<p>x = ${x}, z = ${z}</p><p>${ids.join(", ")}</p>`;
+                  marker.bindPopup(html);
+                }
+
+                return marker;
+              },
             }).addTo(map);
 
             new LinksControl(collection).addTo(map);

@@ -194,6 +194,7 @@ pub fn render(
                         },
                         "properties": {
                             "color": banner.color,
+                            "maps": results.map_ids_by_banner_position[&(banner.x, banner.z)],
                             "name": banner.label,
                             "unique": is_unique(banner),
                         }

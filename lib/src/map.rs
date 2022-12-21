@@ -105,6 +105,7 @@ pub struct MapScan {
     pub banners: BTreeSet<Banner>,
     pub banners_modified: Option<FileTime>,
     pub maps_by_tile: HashMap<Tile, BTreeSet<Map>>,
+    pub map_ids_by_banner_position: HashMap<(i32, i32), HashSet<u32>>,
     pub root_tiles: HashSet<Tile>,
 }
 impl MapScan {
@@ -154,6 +155,13 @@ impl MapScan {
                     if !banners.is_empty() {
                         results.banners_modified.replace(modified);
                     }
+                    for banner in &banners {
+                        results
+                            .map_ids_by_banner_position
+                            .entry((banner.x, banner.z))
+                            .or_default()
+                            .insert(id);
+                    }
                     results.banners.extend(banners);
                     results
                         .maps_by_tile
@@ -177,6 +185,13 @@ impl MapScan {
                         .entry(tile)
                         .or_default()
                         .extend(other_maps);
+                }
+                for (position, other_ids) in other.map_ids_by_banner_position {
+                    results
+                        .map_ids_by_banner_position
+                        .entry(position)
+                        .or_default()
+                        .extend(other_ids);
                 }
                 results.banners.extend(other.banners);
 
