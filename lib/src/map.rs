@@ -158,7 +158,7 @@ impl MapScan {
                     results
                         .maps_by_tile
                         .entry(tile.clone())
-                        .or_insert_with(BTreeSet::new)
+                        .or_default()
                         .insert(Map { modified, id, tile });
                 }
 
@@ -175,7 +175,7 @@ impl MapScan {
                     results
                         .maps_by_tile
                         .entry(tile)
-                        .or_insert_with(BTreeSet::new)
+                        .or_default()
                         .extend(other_maps);
                 }
                 results.banners.extend(other.banners);

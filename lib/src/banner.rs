@@ -2,7 +2,7 @@ use derivative::Derivative;
 use serde::{Deserialize, Deserializer};
 use serde_with::{json::JsonString, serde_as};
 
-#[derive(Debug, Derivative, Eq, PartialOrd, Ord)]
+#[derive(Debug, Derivative, Eq, Ord, PartialOrd)]
 #[derivative(PartialEq)]
 pub struct Banner {
     #[derivative(PartialEq = "ignore")]
