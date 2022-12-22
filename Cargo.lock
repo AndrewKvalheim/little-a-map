@@ -859,6 +859,7 @@ dependencies = [
  "forgiving-semver",
  "glob",
  "indicatif",
+ "itertools",
  "once_cell",
  "png",
  "rayon",

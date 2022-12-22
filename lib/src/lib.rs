@@ -262,6 +262,7 @@ pub fn run(
 mod test {
     use super::*;
     use forgiving_semver::Version;
+    use itertools::{assert_equal, Itertools};
     use once_cell::sync::Lazy;
     use std::path::PathBuf;
     use tempfile::TempDir;
@@ -324,6 +325,19 @@ mod test {
     fn spawn(worlds: &mut Worlds) {
         for world in &worlds.0 {
             assert_eq!((world.level.spawn_x, world.level.spawn_z), (0, 0));
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
+    fn in_player(worlds: &mut Worlds) {
+        let ids = [
+            0, // Inventory
+        ];
+
+        for world in &worlds.0 {
+            let found = world.cache.map_ids_by_player.values().flatten();
+            assert_equal(found.sorted(), &ids);
         }
     }
 }

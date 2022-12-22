@@ -25,5 +25,6 @@ serde_with = { version = "2.1", features = ["json"] }
 serde-query = "0.1"
 
 [dev-dependencies]
+itertools = "0.10"
 tempfile = "3.3"
 test-context = "0.1"
