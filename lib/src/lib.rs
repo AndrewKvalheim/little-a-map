@@ -11,6 +11,7 @@ mod banner;
 mod cache;
 pub mod level;
 mod map;
+mod palette;
 mod search;
 mod tile;
 mod utilities;
