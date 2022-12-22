@@ -262,7 +262,9 @@ pub fn run(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::palette;
     use forgiving_semver::Version;
+    use image::{GenericImageView, Pixel};
     use itertools::{assert_equal, Itertools};
     use once_cell::sync::Lazy;
     use std::path::PathBuf;
@@ -339,6 +341,21 @@ mod test {
         for world in &worlds.0 {
             let found = world.cache.map_ids_by_player.values().flatten();
             assert_equal(found.sorted(), &ids);
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
+    fn swatch(worlds: &mut Worlds) {
+        for world in &worlds.0 {
+            let view = image::open(world.output.path().join("tiles/4/0/0.png")).unwrap();
+
+            assert_eq!(view.dimensions(), (128, 128));
+
+            for (i, rgb) in (0..).zip(palette::BASE.into_iter()).skip(1) {
+                let pixel = view.get_pixel(i, 0);
+                assert_eq!(pixel.to_rgb(), rgb.into());
+            }
         }
     }
 }

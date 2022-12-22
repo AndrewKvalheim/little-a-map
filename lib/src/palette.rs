@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 
-const BASE: [[u8; 3]; 62] = [
+pub const BASE: [[u8; 3]; 62] = [
     [0, 0, 0],
     [127, 178, 56],
     [247, 233, 163],
