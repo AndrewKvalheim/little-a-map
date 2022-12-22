@@ -9,7 +9,7 @@ use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use serde::{de::DeserializeOwned, de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::Path;
 
 pub type Bounds = ((i32, i32), (i32, i32));
@@ -179,8 +179,16 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
         .map(|(position, path)| {
             let mut map_ids = HashSet::new();
 
-            for chunk in fastanvil::Region::from_stream(File::open(path)?)?.iter() {
-                map_ids.extend(from_bytes::<T>(&chunk?.data).unwrap().map_ids());
+            match fastanvil::Region::from_stream(File::open(&path)?) {
+                Ok(mut region) => {
+                    for chunk in region.iter() {
+                        map_ids.extend(from_bytes::<T>(&chunk?.data).unwrap().map_ids());
+                    }
+                }
+                Err(fastanvil::Error::IO(e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof
+                        && fs::metadata(&path)?.len() == 0 => {}
+                Err(e) => return Err(e.into()),
             }
 
             Ok((position, map_ids))
