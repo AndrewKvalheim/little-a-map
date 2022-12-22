@@ -3,6 +3,7 @@
     clippy::implicit_hasher,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    clippy::similar_names,
     clippy::too_many_lines
 )]
 
@@ -255,4 +256,74 @@ pub fn run(
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use forgiving_semver::Version;
+    use once_cell::sync::Lazy;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+    use test_context::{test_context, TestContext};
+
+    struct World {
+        pub cache: Cache,
+        pub level: Level,
+        pub output: TempDir,
+    }
+
+    impl World {
+        fn load(major: u64, minor: u64, patch: u64) -> Self {
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("../fixtures/world-{major}.{minor}"));
+
+            let mut world = Self {
+                cache: Cache::default(),
+                level: Level::from_world_path(&path).unwrap(),
+                output: tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap(),
+            };
+
+            assert_eq!(world.level.version, Version::new(major, minor, patch));
+            search_players(&path, true, &mut world.cache).unwrap();
+            search_entities(&path, true, None, &mut world.cache).unwrap();
+            search_level(&path, true, None, &mut world.cache).unwrap();
+            render(
+                "test",
+                &path,
+                world.output.path(),
+                true,
+                true,
+                &world.level,
+                world
+                    .cache
+                    .map_ids_by_entities_region
+                    .values()
+                    .chain(world.cache.map_ids_by_level_region.values())
+                    .chain(world.cache.map_ids_by_player.values())
+                    .flatten()
+                    .copied()
+                    .collect(),
+            )
+            .unwrap();
+
+            world
+        }
+    }
+
+    struct Worlds([Lazy<World>; 1]);
+
+    impl TestContext for Worlds {
+        fn setup() -> Self {
+            Self([Lazy::new(|| World::load(1, 19, 3))])
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
+    fn spawn(worlds: &mut Worlds) {
+        for world in &worlds.0 {
+            assert_eq!((world.level.spawn_x, world.level.spawn_z), (0, 0));
+        }
+    }
 }
