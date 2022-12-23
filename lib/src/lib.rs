@@ -335,7 +335,8 @@ mod test {
     #[test]
     fn in_player(worlds: &mut Worlds) {
         let ids = [
-            0, // Inventory
+            0,  // Inventory
+            10, // Shulker box in inventory
         ];
 
         for world in &worlds.0 {
@@ -368,6 +369,7 @@ mod test {
             3, // Chest
             4, // Trapped chest
             7, // Shulker box
+            9, // Shulker box in chest
         ];
 
         for world in &worlds.0 {

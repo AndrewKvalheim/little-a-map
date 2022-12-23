@@ -10,6 +10,7 @@ use rayon::prelude::*;
 use serde::{de::DeserializeOwned, de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
+use std::iter;
 use std::path::Path;
 
 pub type Bounds = ((i32, i32), (i32, i32));
@@ -24,8 +25,8 @@ impl<'de> Deserialize<'de> for MapIdsOfEntity {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct Internal {
-            item: Option<MapIdOfItem>,
-            items: Option<Vec<MapIdOfItem>>,
+            item: Option<MapIdsOfItem>,
+            items: Option<Vec<MapIdsOfItem>>,
         }
 
         let internal = Internal::deserialize(deserializer)?;
@@ -35,7 +36,7 @@ impl<'de> Deserialize<'de> for MapIdsOfEntity {
                 .into_iter()
                 .flatten()
                 .chain(internal.item)
-                .filter_map(|i| i.0)
+                .flat_map(|i| i.0)
                 .collect(),
         ))
     }
@@ -65,17 +66,26 @@ impl ContainsMapIds for MapIdsOfEntitiesChunk {
     }
 }
 
-struct MapIdOfItem(Option<u32>);
-impl<'de> Deserialize<'de> for MapIdOfItem {
+struct MapIdsOfItem(HashSet<u32>);
+impl<'de> Deserialize<'de> for MapIdsOfItem {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(tag = "id")]
         enum Internal {
+            #[serde(rename = "minecraft:shulker_box")]
+            BlockEntity { tag: BlockEntityTag },
+
             #[serde(rename = "minecraft:filled_map")]
             FilledMap { tag: FilledMapTag },
 
             #[serde(other)]
             Other,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct BlockEntityTag {
+            block_entity_tag: MapIdsOfEntity,
         }
 
         #[derive(Deserialize)]
@@ -85,8 +95,9 @@ impl<'de> Deserialize<'de> for MapIdOfItem {
         }
 
         Ok(Self(match Internal::deserialize(deserializer)? {
-            Internal::FilledMap { tag } if tag.display.is_none() => Some(tag.map),
-            _ => None,
+            Internal::BlockEntity { tag } => tag.block_entity_tag.0.into_iter().collect(),
+            Internal::FilledMap { tag } if tag.display.is_none() => iter::once(tag.map).collect(),
+            _ => HashSet::default(),
         }))
     }
 }
@@ -131,8 +142,8 @@ impl<'de> Deserialize<'de> for MapIdsOfPlayer {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct Internal {
-            ender_items: Vec<MapIdOfItem>,
-            inventory: Vec<MapIdOfItem>,
+            ender_items: Vec<MapIdsOfItem>,
+            inventory: Vec<MapIdsOfItem>,
         }
 
         let internal = Internal::deserialize(deserializer)?;
@@ -141,7 +152,7 @@ impl<'de> Deserialize<'de> for MapIdsOfPlayer {
                 .ender_items
                 .into_iter()
                 .chain(internal.inventory)
-                .filter_map(|i| i.0)
+                .flat_map(|i| i.0)
                 .collect(),
         ))
     }
