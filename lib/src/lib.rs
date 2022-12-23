@@ -349,11 +349,11 @@ mod test {
     #[test]
     fn in_entities(worlds: &mut Worlds) {
         let ids = [
-            1, // Item frame
-            2, // Glow item frame
-            5, // Minecart with chest
-            6, // Boat with chest
-            8, // Llama
+            1,  // Item frame
+            5,  // Minecart with chest
+            6,  // Boat with chest
+            8,  // Llama
+            11, // Glow item frame (enlarged from #2)
         ];
 
         for world in &worlds.0 {
