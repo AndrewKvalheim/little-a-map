@@ -346,6 +346,38 @@ mod test {
 
     #[test_context(Worlds)]
     #[test]
+    fn in_entities(worlds: &mut Worlds) {
+        let ids = [
+            1, // Item frame
+            2, // Glow item frame
+            5, // Minecart with chest
+            6, // Boat with chest
+            8, // Llama
+        ];
+
+        for world in &worlds.0 {
+            let found = world.cache.map_ids_by_entities_region.values().flatten();
+            assert_equal(found.sorted(), &ids);
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
+    fn in_region(worlds: &mut Worlds) {
+        let ids = [
+            3, // Chest
+            4, // Trapped chest
+            7, // Shulker box
+        ];
+
+        for world in &worlds.0 {
+            let found = world.cache.map_ids_by_level_region.values().flatten();
+            assert_equal(found.sorted(), &ids);
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
     fn swatch(worlds: &mut Worlds) {
         for world in &worlds.0 {
             let view = image::open(world.output.path().join("tiles/4/0/0.png")).unwrap();
