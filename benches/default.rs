@@ -23,7 +23,7 @@ pub fn bench_render(c: &mut Criterion) {
                     true,
                     black_box(true),
                     black_box(&level_info),
-                    ids,
+                    &ids,
                 )
             },
             BatchSize::SmallInput,

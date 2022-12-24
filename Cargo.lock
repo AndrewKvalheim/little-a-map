@@ -958,9 +958,7 @@ dependencies = [
  "flate2",
  "forgiving-semver",
  "glob",
- "image 0.24.5",
  "indicatif",
- "itertools",
  "once_cell",
  "png",
  "rayon",
@@ -968,8 +966,6 @@ dependencies = [
  "serde-query",
  "serde_json",
  "serde_with",
- "tempfile",
- "test-context",
 ]
 
 [[package]]
@@ -1006,9 +1002,18 @@ version = "0.9.3"
 dependencies = [
  "anyhow",
  "criterion",
+ "forgiving-semver",
+ "image 0.24.5",
+ "itertools",
  "lib",
+ "once_cell",
  "paw",
+ "serde",
+ "serde-query",
+ "serde_json",
  "structopt",
+ "tempfile",
+ "test-context",
 ]
 
 [[package]]

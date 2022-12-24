@@ -18,5 +18,5 @@ fn main(Args { output, world }: Args) -> Result<()> {
 
     let level = Level::from_world_path(&world)?;
     let map_ids = search(env!("CARGO_PKG_NAME"), &world, &output, false, false, None)?;
-    render(&generator, &world, &output, false, false, &level, map_ids)
+    render(&generator, &world, &output, false, false, &level, &map_ids)
 }

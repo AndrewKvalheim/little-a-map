@@ -109,7 +109,7 @@ pub struct MapScan {
     pub root_tiles: HashSet<Tile>,
 }
 impl MapScan {
-    pub fn run(world_path: &Path, ids: HashSet<u32>) -> Result<Self> {
+    pub fn run(world_path: &Path, ids: &HashSet<u32>) -> Result<Self> {
         enum Meta {
             Normal { banners: Vec<Banner>, tile: Tile },
             Other,
@@ -144,7 +144,7 @@ impl MapScan {
         let data_path = world_path.join("data");
 
         ids.into_par_iter()
-            .map(move |id| -> Result<Self> {
+            .map(move |&id| -> Result<Self> {
                 let path = data_path.join(format!("map_{id}.dat"));
                 let mut results = Self::default();
 
