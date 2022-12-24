@@ -267,6 +267,7 @@ mod test {
     use image::{GenericImageView, Pixel};
     use itertools::{assert_equal, Itertools};
     use once_cell::sync::Lazy;
+    use serde::Deserialize;
     use std::path::PathBuf;
     use tempfile::TempDir;
     use test_context::{test_context, TestContext};
@@ -375,6 +376,56 @@ mod test {
         for world in &worlds.0 {
             let found = world.cache.map_ids_by_level_region.values().flatten();
             assert_equal(found.sorted(), &ids);
+        }
+    }
+
+    #[test_context(Worlds)]
+    #[test]
+    fn banners(worlds: &mut Worlds) {
+        #[derive(Deserialize)]
+        struct GeoJson {
+            features: Vec<Feature>,
+        }
+
+        #[derive(serde_query::Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+        struct Feature {
+            #[query(".geometry.coordinates.[1]")]
+            pub z: i32,
+            #[query(".geometry.coordinates.[0]")]
+            pub x: i32,
+            #[query(".properties.name")]
+            pub name: Option<String>,
+            #[query(".properties.color")]
+            pub color: String,
+        }
+
+        let banners = [
+            (None, "white"),
+            (None, "light_gray"),
+            (None, "gray"),
+            (None, "black"),
+            (None, "brown"),
+            (None, "red"),
+            (None, "orange"),
+            (None, "yellow"),
+            (None, "lime"),
+            (None, "green"),
+            (None, "cyan"),
+            (None, "light_blue"),
+            (None, "blue"),
+            (None, "purple"),
+            (None, "magenta"),
+            (None, "pink"),
+            (Some("Example Banner"), "white"),
+        ];
+
+        for world in &worlds.0 {
+            let json = File::open(world.output.path().join("banners.json")).unwrap();
+            let geo: GeoJson = serde_json::from_reader(json).unwrap();
+
+            let actual = geo.features.into_iter().sorted().map(|f| (f.name, f.color));
+            let expected = banners.iter().map(|&(n, c)| (n.map(Into::into), c.into()));
+            assert_equal(actual, expected);
         }
     }
 
