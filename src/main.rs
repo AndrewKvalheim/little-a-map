@@ -1,23 +1,22 @@
 use anyhow::Result;
+use lib::{level::Level, render, search};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
 struct Args {
     #[structopt(name = "world dir", parse(from_os_str))]
-    world_path: PathBuf,
+    world: PathBuf,
 
     #[structopt(name = "output dir", parse(from_os_str))]
-    output_path: PathBuf,
+    output: PathBuf,
 }
 
 #[paw::main]
-fn main(args: Args) -> Result<()> {
-    let world_path = args.world_path;
-    let output_path = args.output_path;
+fn main(Args { output, world }: Args) -> Result<()> {
+    let generator = format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    let name = env!("CARGO_PKG_NAME");
-    let version = env!("CARGO_PKG_VERSION");
-
-    lib::run(name, version, &world_path, &output_path, false, false)
+    let level = Level::from_world_path(&world)?;
+    let map_ids = search(env!("CARGO_PKG_NAME"), &world, &output, false, false, None)?;
+    render(&generator, &world, &output, false, false, &level, map_ids)
 }

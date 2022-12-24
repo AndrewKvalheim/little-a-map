@@ -21,7 +21,6 @@ use askama::Template;
 use banner::Banner;
 use cache::Cache;
 use filetime::{self, FileTime};
-use forgiving_semver::VersionReq;
 use indicatif::ProgressBar;
 use level::Level;
 use map::{Map, MapData, MapScan};
@@ -36,7 +35,7 @@ use std::time::Instant;
 use tile::Tile;
 use utilities::progress_bar;
 
-const COMPATIBLE_VERSIONS: &str = "~1.19.0";
+pub const COMPATIBLE_VERSIONS: &str = "~1.19.0";
 
 #[derive(Template)]
 #[template(path = "index.html.j2")]
@@ -224,37 +223,6 @@ pub fn render(
             );
         }
     }
-
-    Ok(())
-}
-
-pub fn run(
-    name: &str,
-    version: &str,
-    world_path: &Path,
-    output_path: &Path,
-    quiet: bool,
-    force: bool,
-) -> Result<()> {
-    let level = Level::from_world_path(world_path)?;
-    assert!(
-        VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version),
-        "Incompatible with game version {}",
-        level.version
-    );
-
-    let map_ids = search(name, world_path, output_path, quiet, force, None)?;
-
-    let generator = format!("{name} {version}");
-    render(
-        &generator,
-        world_path,
-        output_path,
-        quiet,
-        force,
-        &level,
-        map_ids,
-    )?;
 
     Ok(())
 }

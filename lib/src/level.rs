@@ -1,7 +1,8 @@
+use super::COMPATIBLE_VERSIONS;
 use crate::utilities::read_gz;
 use anyhow::Result;
 use fastnbt::from_bytes;
-use forgiving_semver::Version;
+use forgiving_semver::{Version, VersionReq};
 use std::path::Path;
 
 #[derive(serde_query::Deserialize)]
@@ -16,6 +17,14 @@ pub struct Level {
 
 impl Level {
     pub fn from_world_path(path: &Path) -> Result<Self> {
-        Ok(from_bytes(&read_gz(&path.join("level.dat"))?)?)
+        let level: Self = from_bytes(&read_gz(&path.join("level.dat"))?)?;
+
+        assert!(
+            VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version),
+            "Incompatible with game version {}",
+            level.version
+        );
+
+        Ok(level)
     }
 }
