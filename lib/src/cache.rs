@@ -1,6 +1,5 @@
 use anyhow::Result;
 use filetime::FileTime;
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -8,6 +7,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io::ErrorKind::NotFound;
 use std::path::Path;
+use zstd::stream::{read::Decoder as ZstdDecoder, write::Encoder as ZstdEncoder};
 
 pub type MapIdsByRegion = HashMap<(i32, i32), HashSet<u32>>;
 
@@ -29,7 +29,7 @@ impl Cache {
         match File::open(path) {
             Ok(f) => {
                 let mut cache =
-                    bincode::deserialize_from::<_, Self>(GzDecoder::new(f)).unwrap_or_default();
+                    bincode::deserialize_from::<_, Self>(ZstdDecoder::new(f)?).unwrap_or_default();
                 cache.modified = Some(FileTime::from_last_modification_time(&fs::metadata(path)?));
 
                 Ok(cache)
@@ -46,8 +46,8 @@ impl Cache {
 
     pub fn write_to(&self, path: &Path) -> Result<()> {
         fs::create_dir_all(path.parent().unwrap())?;
-        let gz = GzEncoder::new(File::create(path)?, Compression::default());
-        Ok(bincode::serialize_into(gz, self)?)
+        let z = ZstdEncoder::new(File::create(path)?, 0)?.auto_finish();
+        Ok(bincode::serialize_into(z, self)?)
     }
 }
 
