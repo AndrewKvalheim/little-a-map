@@ -14,6 +14,8 @@ struct Args {
 
 #[paw::main]
 fn main(Args { output, world }: Args) -> Result<()> {
+    env_logger::init();
+
     let level = Level::from_world_path(&world)?;
     let map_ids = search(&world, &output, false, false, None)?;
     render(&world, &output, false, false, &level, &map_ids)

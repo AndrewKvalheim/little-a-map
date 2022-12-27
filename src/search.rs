@@ -6,12 +6,15 @@ use anyhow::Result;
 use fastnbt::from_bytes;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
+use itertools::Itertools;
+use log::{debug, log_enabled, Level::Debug};
 use rayon::prelude::*;
 use serde::{de::DeserializeOwned, de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::iter;
 use std::path::Path;
+use std::string::ToString;
 
 pub type Bounds = ((i32, i32), (i32, i32));
 
@@ -187,13 +190,24 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
     let map_ids_by_region = regions
         .into_par_iter()
         .progress_with(bar.clone())
-        .map(|(position, path)| {
-            let mut map_ids = HashSet::new();
+        .map(|((rx, rz), path)| {
+            let mut in_region = HashSet::new();
 
             match fastanvil::Region::from_stream(File::open(&path)?) {
                 Ok(mut region) => {
                     for chunk in region.iter() {
-                        map_ids.extend(from_bytes::<T>(&chunk?.data).unwrap().map_ids());
+                        let fastanvil::ChunkData { data, x, z } = chunk?;
+
+                        let in_chunk = from_bytes::<T>(&data).unwrap().map_ids();
+
+                        if log_enabled!(Debug) && !in_chunk.is_empty() {
+                            let list = in_chunk.iter().sorted().map(ToString::to_string).join(", ");
+                            bar.suspend(|| {
+                                debug!("Region ({rx}, {rz}) chunk ({x}, {z}) maps: {list}");
+                            });
+                        }
+
+                        in_region.extend(in_chunk);
                     }
                 }
                 Err(fastanvil::Error::IO(e))
@@ -202,7 +216,7 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
                 Err(e) => return Err(e.into()),
             }
 
-            Ok((position, map_ids))
+            Ok(((rx, rz), in_region))
         })
         .collect::<Result<HashMap<_, _>>>()?;
 
@@ -227,7 +241,16 @@ pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Resu
     let ids = players
         .into_par_iter()
         .progress_with(bar.clone())
-        .map(|(index, path)| Ok((index, from_bytes::<MapIdsOfPlayer>(&read_gz(&path)?)?.0)))
+        .map(|(index, path)| {
+            let ids = from_bytes::<MapIdsOfPlayer>(&read_gz(&path)?)?.0;
+
+            if log_enabled!(Debug) && !ids.is_empty() {
+                let list = ids.iter().sorted().map(ToString::to_string).join(", ");
+                bar.suspend(|| debug!("Player {index} maps: {list}"));
+            }
+
+            Ok((index, ids))
+        })
         .collect::<Result<HashMap<_, _>>>()?;
     bar.finish_and_clear();
 

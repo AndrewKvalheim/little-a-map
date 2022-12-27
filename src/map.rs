@@ -7,6 +7,8 @@ use anyhow::Result;
 use derivative::Derivative;
 use fastnbt::from_bytes;
 use filetime::FileTime;
+use itertools::Itertools;
+use log::{debug, log_enabled, Level::Debug};
 use rayon::prelude::*;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -154,6 +156,15 @@ impl MapScan {
                     results.root_tiles.insert(tile.root());
                     if !banners.is_empty() {
                         results.banners_modified.replace(modified);
+
+                        if log_enabled!(Debug) {
+                            let list = banners
+                                .iter()
+                                .sorted()
+                                .map(|Banner { x, z, .. }| format!("({x}, {z})",))
+                                .join(", ");
+                            debug!("Map {id} banners: {list}");
+                        }
                     }
                     for banner in &banners {
                         results
