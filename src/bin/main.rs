@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lib::{level::Level, render, search};
+use little_a_map::{level::Level, render, search};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -14,9 +14,7 @@ struct Args {
 
 #[paw::main]
 fn main(Args { output, world }: Args) -> Result<()> {
-    let generator = format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-
     let level = Level::from_world_path(&world)?;
-    let map_ids = search(env!("CARGO_PKG_NAME"), &world, &output, false, false, None)?;
-    render(&generator, &world, &output, false, false, &level, &map_ids)
+    let map_ids = search(&world, &output, false, false, None)?;
+    render(&world, &output, false, false, &level, &map_ids)
 }

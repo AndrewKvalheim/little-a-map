@@ -45,7 +45,6 @@ struct IndexTemplate<'a> {
 }
 
 pub fn search(
-    name: &str,
     world_path: &Path,
     output_path: &Path,
     quiet: bool,
@@ -54,7 +53,7 @@ pub fn search(
 ) -> Result<HashSet<u32>> {
     let start_time = Instant::now();
 
-    let cache_path = output_path.join(format!(".cache/{name}.dat"));
+    let cache_path = output_path.join(format!(".cache/{}.dat", env!("CARGO_PKG_NAME")));
     let mut cache = if force {
         Cache::default()
     } else {
@@ -82,7 +81,6 @@ pub fn search(
 }
 
 pub fn render(
-    generator: &str,
     world_path: &Path,
     output_path: &Path,
     quiet: bool,
@@ -209,7 +207,7 @@ pub fn render(
 
     let index_template = IndexTemplate {
         center: [level.spawn_z, level.spawn_x],
-        generator,
+        generator: &format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 

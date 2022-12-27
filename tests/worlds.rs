@@ -1,7 +1,7 @@
 use forgiving_semver::Version;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
-use lib::{level::Level, palette, render, search};
+use little_a_map::{level::Level, palette, render, search};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -61,8 +61,8 @@ impl World {
         let output_path = output.path();
 
         assert_eq!(level.version, Version::new(major, minor, patch));
-        let ids = search("test", &path, output_path, true, true, None).unwrap();
-        render("test", &path, output_path, true, true, &level, &ids).unwrap();
+        let ids = search(&path, output_path, true, true, None).unwrap();
+        render(&path, output_path, true, true, &level, &ids).unwrap();
 
         Self { ids, level, output }
     }

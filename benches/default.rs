@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use lib::{level::Level, render, search};
+use little_a_map::{level::Level, render, search};
 use std::env;
 use std::path::PathBuf;
 
@@ -7,7 +7,7 @@ pub fn bench_render(c: &mut Criterion) {
     let world_path = PathBuf::from(env!("BENCH_WORLD_PATH"));
     let output_path = PathBuf::from(env!("BENCH_OUTPUT_PATH"));
     let level_info = Level::from_world_path(&world_path).unwrap();
-    let map_ids = search("benchmark", &world_path, &output_path, false, false, None).unwrap();
+    let map_ids = search(&world_path, &output_path, false, false, None).unwrap();
     println!("Found {} maps", map_ids.len());
 
     let mut group = c.benchmark_group("little-a-map");
@@ -17,7 +17,6 @@ pub fn bench_render(c: &mut Criterion) {
             || map_ids.clone(),
             |ids| {
                 render(
-                    "benchmark",
                     black_box(&world_path),
                     black_box(&output_path),
                     true,
@@ -51,7 +50,6 @@ pub fn bench_search(c: &mut Criterion) {
     group.bench_function("search", |b| {
         b.iter(|| {
             search(
-                "benchmark",
                 black_box(&world_path),
                 black_box(&output_path),
                 true,
