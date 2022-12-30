@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+git diff --cached --diff-filter 'ACMR' --name-only -z -- 'fixtures' ':(exclude)**/*.mtime' \
+| while IFS= read -d $'\0' -r path; do
+  stat --format '%Y' "$path" > "$path.mtime"
+  git update-index -q --add --really-refresh "$path.mtime"
+  git update-index --assume-unchanged "$path.mtime"
+  rm "$path.mtime"
+done

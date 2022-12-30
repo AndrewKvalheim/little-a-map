@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+find '.' -name '*.mtime' -print0 \
+| while IFS= read -d $'\0' -r sidecar; do
+  git update-index --assume-unchanged "$sidecar"
+  touch --date "@$(<"$sidecar")" "${sidecar%.mtime}"
+  rm "$sidecar"
+done
