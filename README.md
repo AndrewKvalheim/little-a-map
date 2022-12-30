@@ -3,7 +3,7 @@
 # Little a Map
 
 Players can have little a map—if they've surveyed the area in-game. This tool
-renders a composite of existing map items with the goal of minimizing external
+renders a composite of player-created map items with the goal of minimizing external
 effects on survival gameplay.
 
 Design goals:
