@@ -44,6 +44,52 @@ struct IndexTemplate<'a> {
     generator: &'a str,
 }
 
+struct Quadrant<'a> {
+    world_path: &'a Path,
+    output_path: &'a Path,
+    force: bool,
+    bar: &'a ProgressBar,
+    maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
+    layers: &'a mut Vec<Option<Vec<(&'a Map, MapData)>>>,
+}
+
+impl Quadrant<'_> {
+    fn render(&mut self, tile: &Tile) -> Result<usize> {
+        let mut count = 0;
+
+        self.layers.push(
+            self.maps_by_tile
+                .get(tile)
+                .map(|maps| {
+                    maps.iter()
+                        .map(|m| Ok((m, MapData::from_world_path(self.world_path, m.id)?)))
+                        .collect::<Result<_>>()
+                })
+                .transpose()?,
+        );
+
+        if tile.zoom == 4 {
+            let maps = || self.layers.iter().flatten().flatten();
+
+            if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
+                if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
+                    count += 1;
+                }
+            }
+
+            self.bar.inc(1);
+        } else {
+            for quadrant in &tile.quadrants() {
+                count += self.render(quadrant)?;
+            }
+        }
+
+        self.layers.pop();
+
+        Ok(count)
+    }
+}
+
 pub fn search(
     world_path: &Path,
     output_path: &Path,
@@ -88,66 +134,19 @@ pub fn render(
     level: &Level,
     ids: &HashSet<u32>,
 ) -> Result<()> {
-    struct RenderQuadrant<'a> {
-        world_path: &'a Path,
-        output_path: &'a Path,
-        force: bool,
-        bar: &'a ProgressBar,
-        maps_by_tile: &'a HashMap<Tile, BTreeSet<Map>>,
-        layers: &'a mut Vec<Option<Vec<(&'a Map, MapData)>>>,
-    }
-    impl RenderQuadrant<'_> {
-        fn f(&mut self, tile: &Tile) -> Result<usize> {
-            let mut count = 0;
-
-            self.layers.push(
-                self.maps_by_tile
-                    .get(tile)
-                    .map(|maps| {
-                        maps.iter()
-                            .map(|m| Ok((m, MapData::from_world_path(self.world_path, m.id)?)))
-                            .collect::<Result<_>>()
-                    })
-                    .transpose()?,
-            );
-
-            if tile.zoom == 4 {
-                let maps = || self.layers.iter().flatten().flatten();
-
-                if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
-                    if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
-                        count += 1;
-                    }
-                }
-
-                self.bar.inc(1);
-            } else {
-                for quadrant in &tile.quadrants() {
-                    count += self.f(quadrant)?;
-                }
-            }
-
-            self.layers.pop();
-
-            Ok(count)
-        }
-    }
-
     let start_time = Instant::now();
-    let mut maps_rendered = 0;
-    let mut tiles_rendered = 0;
 
     let results = MapScan::run(world_path, ids)?;
-    maps_rendered += results.maps_by_tile.len();
+    let maps_rendered = results.maps_by_tile.len();
 
     let length = results.root_tiles.len() * 4_usize.pow(4);
     let bar = progress_bar(quiet, "Render", length, "tiles");
 
-    tiles_rendered += results
+    let tiles_rendered = results
         .root_tiles
         .par_iter()
         .map(|tile| {
-            RenderQuadrant {
+            Quadrant {
                 world_path,
                 output_path,
                 force,
@@ -155,7 +154,7 @@ pub fn render(
                 maps_by_tile: &results.maps_by_tile,
                 layers: &mut Vec::with_capacity(5),
             }
-            .f(tile)
+            .render(tile)
         })
         .try_reduce(|| 0, |a, b| Ok(a + b))?;
 

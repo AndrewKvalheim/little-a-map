@@ -1,6 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::cache::{Cache, MapIdsByRegion};
+use crate::cache::{Cache, IdsBy};
 use crate::utilities::{progress_bar, read_gz};
 use anyhow::Result;
 use fastnbt::from_bytes;
@@ -167,7 +167,7 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
     bounds: Option<&Bounds>,
     cache: &mut Cache,
     pattern: &str,
-) -> Result<(usize, MapIdsByRegion)> {
+) -> Result<(usize, IdsBy<(i32, i32)>)> {
     let regions = glob(world_path.join(pattern).to_str().unwrap())?
         .map(|entry| {
             let path = entry?;

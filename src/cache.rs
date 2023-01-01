@@ -9,7 +9,7 @@ use std::io::ErrorKind::NotFound;
 use std::path::Path;
 use zstd::stream::{read::Decoder as ZstdDecoder, write::Encoder as ZstdEncoder};
 
-pub type MapIdsByRegion = HashMap<(i32, i32), HashSet<u32>>;
+pub type IdsBy<K> = HashMap<K, HashSet<u32>>;
 
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
@@ -19,9 +19,9 @@ pub struct Cache {
     #[serde(deserialize_with = "validate_version")]
     version: String,
 
-    pub map_ids_by_entities_region: MapIdsByRegion,
-    pub map_ids_by_level_region: MapIdsByRegion,
-    pub map_ids_by_player: HashMap<usize, HashSet<u32>>,
+    pub map_ids_by_entities_region: IdsBy<(i32, i32)>,
+    pub map_ids_by_level_region: IdsBy<(i32, i32)>,
+    pub map_ids_by_player: IdsBy<usize>,
 }
 
 impl Cache {
