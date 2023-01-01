@@ -21,8 +21,10 @@ use askama::Template;
 use banner::Banner;
 use cache::Cache;
 use filetime::{self, FileTime};
+use glob::glob;
 use indicatif::ProgressBar;
 use level::Level;
+use log::debug;
 use map::{Map, MapData, MapScan};
 use rayon::prelude::*;
 use search::{search_entities, search_level, search_players, Bounds};
@@ -30,6 +32,7 @@ use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::Write;
+use std::ops::AddAssign;
 use std::path::Path;
 use std::time::Instant;
 use tile::Tile;
@@ -44,6 +47,19 @@ struct IndexTemplate<'a> {
     generator: &'a str,
 }
 
+#[derive(Default)]
+struct Report {
+    pub rendered: usize,
+    pub tiles: HashSet<(u8, i32, i32)>,
+}
+
+impl AddAssign for Report {
+    fn add_assign(&mut self, other: Self) {
+        self.rendered += other.rendered;
+        self.tiles.extend(other.tiles);
+    }
+}
+
 struct Quadrant<'a> {
     world_path: &'a Path,
     output_path: &'a Path,
@@ -54,8 +70,8 @@ struct Quadrant<'a> {
 }
 
 impl Quadrant<'_> {
-    fn render(&mut self, tile: &Tile) -> Result<usize> {
-        let mut count = 0;
+    fn render(&mut self, tile: &Tile) -> Result<Report> {
+        let mut report = Report::default();
 
         self.layers.push(
             self.maps_by_tile
@@ -71,22 +87,26 @@ impl Quadrant<'_> {
         if tile.zoom == 4 {
             let maps = || self.layers.iter().flatten().flatten();
 
-            if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
-                if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
-                    count += 1;
+            if maps().next().is_some() {
+                report.tiles.insert((tile.zoom, tile.x, tile.y));
+
+                if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
+                    if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
+                        report.rendered += 1;
+                    }
                 }
             }
 
             self.bar.inc(1);
         } else {
             for quadrant in &tile.quadrants() {
-                count += self.render(quadrant)?;
+                report += self.render(quadrant)?;
             }
         }
 
         self.layers.pop();
 
-        Ok(count)
+        Ok(report)
     }
 }
 
@@ -142,7 +162,7 @@ pub fn render(
     let length = results.root_tiles.len() * 4_usize.pow(4);
     let bar = progress_bar(quiet, "Render", length, "tiles");
 
-    let tiles_rendered = results
+    let report = results
         .root_tiles
         .par_iter()
         .map(|tile| {
@@ -156,14 +176,39 @@ pub fn render(
             }
             .render(tile)
         })
-        .try_reduce(|| 0, |a, b| Ok(a + b))?;
+        .try_reduce(Report::default, |mut a, b| {
+            a += b;
+            Ok(a)
+        })?;
 
     bar.finish_and_clear();
+
+    let pruned = glob(output_path.join("tiles/*/*/*.png").to_str().unwrap())?
+        .map(|entry| -> Result<usize> {
+            let path = entry?;
+            let relative = path.strip_prefix(output_path)?;
+            let mut parts = relative.to_str().unwrap().split('/').skip(1);
+            let zoom: u8 = parts.next().unwrap().parse()?;
+            let x: i32 = parts.next().unwrap().parse()?;
+            let y: i32 = parts.next().unwrap().split('.').next().unwrap().parse()?;
+
+            Ok(if report.tiles.contains(&(zoom, x, y)) {
+                0
+            } else {
+                let base = output_path.join(format!("tiles/{zoom}/{x}/{y}"));
+                debug!("Prune: {}", base.as_path().to_str().unwrap());
+                fs::remove_file(base.with_extension("png"))?;
+                fs::remove_file(base.with_extension("meta.json"))?;
+                1
+            })
+        })
+        .sum::<Result<usize>>()?;
 
     if let Some(modified) = results.banners_modified {
         let banners_path = output_path.join("banners.json");
 
         if force
+            || pruned != 0
             || fs::metadata(&banners_path)
                 .map(|m| FileTime::from_last_modification_time(&m))
                 .map_or(true, |json_modified| json_modified < modified)
@@ -211,11 +256,12 @@ pub fn render(
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if !quiet {
-        if tiles_rendered == 0 {
+        if report.rendered == 0 && pruned == 0 {
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {tiles_rendered} tiles from {maps_rendered} map items in {:.2}s",
+                "Rendered {} and pruned {pruned} tiles from {maps_rendered} map items in {:.2}s",
+                report.rendered,
                 start_time.elapsed().as_secs_f32()
             );
         }
