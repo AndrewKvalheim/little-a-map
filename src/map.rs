@@ -107,7 +107,7 @@ pub struct MapScan {
     pub banners: BTreeSet<Banner>,
     pub banners_modified: Option<FileTime>,
     pub maps_by_tile: HashMap<Tile, BTreeSet<Map>>,
-    pub map_ids_by_banner_position: HashMap<(i32, i32), HashSet<u32>>,
+    pub map_ids_by_banner_position: HashMap<(i32, i32), BTreeSet<u32>>,
     pub root_tiles: HashSet<Tile>,
 }
 impl MapScan {
