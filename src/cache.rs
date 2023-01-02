@@ -84,3 +84,27 @@ fn validate_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String
 
     deserializer.deserialize_str(VersionVisitor)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn validate_version() {
+        let with_version = |version| {
+            serde_json::from_value::<Cache>(json!({
+                "version": version,
+                "map_ids_by_entities_region": {},
+                "map_ids_by_level_region": {},
+                "map_ids_by_player": {}
+            }))
+        };
+
+        let current = env!("CARGO_PKG_VERSION");
+        let (rest, patch) = current.split_at(current.rmatch_indices('.').next().unwrap().0 + 1);
+
+        assert!(with_version(current).is_ok());
+        assert!(with_version(&format!("{rest}{}", patch.parse::<u8>().unwrap() + 1)).is_err());
+    }
+}
