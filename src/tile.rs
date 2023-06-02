@@ -145,7 +145,7 @@ impl Canvas {
 
         for (i, pixel) in self.pixels.iter_mut().enumerate().filter(|(_, p)| **p < 4) {
             let (j, k) = (i / factor, i / 128);
-            let map_pixel = data.0[(a + j + b * k - (k - j / 128) * 128)];
+            let map_pixel = data.0[a + j + b * k - (k - j / 128) * 128];
 
             if map_pixel >= 4 {
                 self.is_dirty = true;
