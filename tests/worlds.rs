@@ -72,7 +72,7 @@ struct Worlds([Lazy<World>; 1]);
 
 impl TestContext for Worlds {
     fn setup() -> Self {
-        Self([Lazy::new(|| World::load(1, 20, 0))])
+        Self([Lazy::new(|| World::load(1, 20, 2))])
     }
 }
 
