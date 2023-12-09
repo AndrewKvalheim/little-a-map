@@ -1,6 +1,6 @@
 use super::COMPATIBLE_VERSIONS;
 use crate::utilities::read_gz;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use fastnbt::from_bytes;
 use forgiving_semver::{Version, VersionReq};
 use std::path::Path;
@@ -16,8 +16,10 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn from_world_path(path: &Path) -> Result<Self> {
-        let level: Self = from_bytes(&read_gz(&path.join("level.dat"))?)?;
+    pub fn from_world_path(world_path: &Path) -> Result<Self> {
+        let path = world_path.join("level.dat");
+        let level: Self = from_bytes(&read_gz(&path)?)
+            .with_context(|| format!("Failed to deserialize {}", path.display()))?;
 
         assert!(
             VersionReq::parse(COMPATIBLE_VERSIONS)?.matches(&level.version),
