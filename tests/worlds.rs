@@ -54,7 +54,7 @@ struct World {
 impl World {
     fn load(major: u64, minor: u64, patch: u64) -> Self {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("fixtures/world-{major}.{minor}"));
+            .join(format!("fixtures/world-{major}.{minor}.{patch}"));
 
         let level = Level::from_world_path(&path).unwrap();
         let output = tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap();
@@ -72,7 +72,7 @@ struct Worlds([Lazy<World>; 1]);
 
 impl TestContext for Worlds {
     fn setup() -> Self {
-        Self([Lazy::new(|| World::load(1, 20, 2))])
+        Self([Lazy::new(|| World::load(1, 20, 4))])
     }
 }
 

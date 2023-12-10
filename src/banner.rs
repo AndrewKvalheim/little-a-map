@@ -28,7 +28,14 @@ impl<'de> Deserialize<'de> for Banner {
         }
 
         #[derive(Deserialize)]
-        struct Name {
+        #[serde(untagged)]
+        enum Name {
+            V1203(V1203),
+            V1204(String),
+        }
+
+        #[derive(Deserialize)]
+        struct V1203 {
             text: String,
         }
 
@@ -42,7 +49,10 @@ impl<'de> Deserialize<'de> for Banner {
         let internal = Internal::deserialize(deserializer)?;
         Ok(Self {
             color: internal.color,
-            label: internal.name.map(|n| n.text),
+            label: internal.name.map(|name| match name {
+                Name::V1203(n) => n.text,
+                Name::V1204(n) => n,
+            }),
             x: internal.pos.x,
             z: internal.pos.z,
         })
