@@ -10,6 +10,10 @@ license = "GPL-3.0-or-later"
 readme = "README.md"
 edition = "2021"
 
+[lints.clippy]
+nursery = "warn"
+pedantic = "warn"
+
 [[bin]]
 name = "little-a-map"
 path = "src/bin/main.rs"

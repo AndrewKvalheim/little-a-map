@@ -165,7 +165,7 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
     world_path: &Path,
     quiet: bool,
     bounds: Option<&Bounds>,
-    cache: &mut Cache,
+    cache: &Cache,
     pattern: &str,
 ) -> Result<(usize, IdsBy<(i32, i32)>)> {
     let regions = glob(world_path.join(pattern).to_str().unwrap())?

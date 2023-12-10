@@ -159,7 +159,7 @@ impl Canvas {
         let mut map = HashMap::with_capacity(PALETTE_LEN);
         let mut next = 0;
 
-        for pixel in self.pixels.iter_mut() {
+        for pixel in &mut self.pixels {
             *pixel = *map.entry(*pixel).or_insert_with(|| {
                 let (i, j) = (*pixel as usize * 3, next);
                 palette.extend(&PALETTE[i..i + 3]);

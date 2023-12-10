@@ -1,4 +1,3 @@
-#![warn(clippy::nursery, clippy::pedantic)]
 #![allow(
     clippy::implicit_hasher,
     clippy::missing_errors_doc,
