@@ -6,7 +6,6 @@ use crate::utilities::read_gz;
 use anyhow::{Context, Result};
 use derivative::Derivative;
 use fastnbt::from_bytes;
-use filetime::FileTime;
 use itertools::Itertools;
 use log::{debug, log_enabled, Level::Debug};
 use rayon::prelude::*;
@@ -16,6 +15,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::path::Path;
+use std::time::SystemTime;
 
 #[derive(PartialEq)]
 enum Dimension {
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for Dimension {
 #[derive(Debug, Derivative, Eq)]
 #[derivative(Ord, PartialEq, PartialOrd)]
 pub struct Map {
-    pub modified: FileTime,
+    pub modified: SystemTime,
 
     pub id: u32,
 
@@ -106,7 +106,7 @@ impl MapData {
 #[derive(Default)]
 pub struct MapScan {
     pub banners: BTreeSet<Banner>,
-    pub banners_modified: Option<FileTime>,
+    pub banners_modified: Option<SystemTime>,
     pub maps_by_tile: HashMap<Tile, BTreeSet<Map>>,
     pub map_ids_by_banner_position: HashMap<(i32, i32), BTreeSet<u32>>,
     pub root_tiles: HashSet<Tile>,
@@ -154,7 +154,7 @@ impl MapScan {
                 if let Meta::Normal { banners, tile } = from_bytes(&read_gz(&path)?)
                     .with_context(|| format!("Failed to deserialize {}", path.display()))?
                 {
-                    let modified = FileTime::from_last_modification_time(&fs::metadata(&path)?);
+                    let modified = fs::metadata(&path)?.modified()?;
 
                     results.root_tiles.insert(tile.root());
                     if !banners.is_empty() {
@@ -218,13 +218,14 @@ impl MapScan {
 mod test {
     use super::*;
     use std::cmp::Ordering::{Equal, Greater, Less};
+    use std::time::Duration;
 
     #[test]
     fn compare() {
-        const fn map(id: u32, s: i64, x: i32) -> Map {
+        fn map(id: u32, s: u64, x: i32) -> Map {
             Map {
                 id,
-                modified: FileTime::from_unix_time(s, 0),
+                modified: SystemTime::UNIX_EPOCH + Duration::from_secs(s),
                 tile: Tile::new(0, x, 0),
             }
         }

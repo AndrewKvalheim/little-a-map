@@ -1,5 +1,4 @@
 use anyhow::Result;
-use filetime::FileTime;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -7,6 +6,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io::ErrorKind::NotFound;
 use std::path::Path;
+use std::time::SystemTime;
 use zstd::stream::{read::Decoder as ZstdDecoder, write::Encoder as ZstdEncoder};
 
 pub type IdsBy<K> = HashMap<K, HashSet<u32>>;
@@ -14,7 +14,7 @@ pub type IdsBy<K> = HashMap<K, HashSet<u32>>;
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
     #[serde(skip)]
-    pub modified: Option<FileTime>,
+    pub modified: Option<SystemTime>,
 
     #[serde(deserialize_with = "validate_version")]
     version: String,
@@ -30,7 +30,7 @@ impl Cache {
             Ok(f) => {
                 let mut cache =
                     bincode::deserialize_from::<_, Self>(ZstdDecoder::new(f)?).unwrap_or_default();
-                cache.modified = Some(FileTime::from_last_modification_time(&fs::metadata(path)?));
+                cache.modified = Some(fs::metadata(path)?.modified()?);
 
                 Ok(cache)
             }
@@ -40,7 +40,7 @@ impl Cache {
     }
 
     pub fn is_expired_for(&self, path: &Path) -> Result<bool> {
-        let modified = FileTime::from_last_modification_time(&fs::metadata(path)?);
+        let modified = fs::metadata(path)?.modified()?;
         Ok(self.modified.map_or(true, |m| m < modified))
     }
 

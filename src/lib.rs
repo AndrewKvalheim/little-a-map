@@ -19,7 +19,6 @@ use anyhow::Result;
 use askama::Template;
 use banner::Banner;
 use cache::Cache;
-use filetime::{self, FileTime};
 use glob::glob;
 use indicatif::ProgressBar;
 use level::Level;
@@ -209,7 +208,7 @@ pub fn render(
         if force
             || pruned != 0
             || fs::metadata(&banners_path)
-                .map(|m| FileTime::from_last_modification_time(&m))
+                .and_then(|m| m.modified())
                 .map_or(true, |json_modified| json_modified < modified)
         {
             let is_unique = {
@@ -224,8 +223,9 @@ pub fn render(
                 move |b: &Banner| b.label.as_deref().map_or(false, |l| *u.get(l).unwrap())
             };
 
+            let banners_file = File::create(&banners_path)?;
             serde_json::to_writer(
-                &File::create(&banners_path)?,
+                &banners_file,
                 &json!({
                     "type": "FeatureCollection",
                     "features": results.banners.iter().map(|banner| json!({
@@ -243,8 +243,7 @@ pub fn render(
                     })).collect::<Vec<_>>()
                 }),
             )?;
-
-            filetime::set_file_mtime(banners_path, modified)?;
+            banners_file.set_modified(modified)?;
         }
     }
 

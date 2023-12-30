@@ -1088,7 +1088,6 @@ dependencies = [
  "env_logger",
  "fastanvil",
  "fastnbt",
- "filetime",
  "flate2",
  "forgiving-semver",
  "glob",

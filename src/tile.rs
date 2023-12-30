@@ -1,13 +1,13 @@
 use crate::map::{Map, MapData};
 use crate::palette::{PALETTE, PALETTE_LEN};
 use anyhow::Result;
-use filetime::FileTime;
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::ops::Add;
 use std::path::Path;
+use std::time::SystemTime;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Tile {
@@ -59,7 +59,7 @@ impl Tile {
         &self,
         output_path: &Path,
         maps: impl IntoIterator<Item = &'a (&'a Map, MapData)>,
-        maps_modified: FileTime,
+        maps_modified: SystemTime,
         force: bool,
     ) -> Result<bool> {
         let dir_path = output_path.join(format!("tiles/{}/{}", self.zoom, self.x));
@@ -69,7 +69,7 @@ impl Tile {
 
         if !force
             && fs::metadata(&meta_path)
-                .map(|m| FileTime::from_last_modification_time(&m))
+                .and_then(|m| m.modified())
                 .map_or(false, |meta_modified| meta_modified >= maps_modified)
         {
             return Ok(false);
@@ -88,20 +88,22 @@ impl Tile {
 
         // Metadata
         fs::create_dir_all(&dir_path)?;
-        serde_json::to_writer(&File::create(&meta_path)?, &json!({ "maps": ids }))?;
-        filetime::set_file_mtime(&meta_path, maps_modified)?;
+        let meta_file = File::create(&meta_path)?;
+        serde_json::to_writer(&meta_file, &json!({ "maps": ids }))?;
+        meta_file.set_modified(maps_modified)?;
 
         // Image
         if canvas.is_dirty {
             let png_path = base_path.with_extension("png");
-            let mut encoder = png::Encoder::new(BufWriter::new(File::create(&png_path)?), 128, 128);
+            let png_file = File::create(png_path)?;
+            let mut encoder = png::Encoder::new(BufWriter::new(&png_file), 128, 128);
             encoder.set_color(png::ColorType::Indexed);
             encoder.set_compression(png::Compression::Best);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_filter(png::FilterType::NoFilter);
             encoder.set_palette(canvas.palette());
             encoder.write_header()?.write_image_data(&canvas.pixels)?;
-            filetime::set_file_mtime(&png_path, maps_modified)?;
+            png_file.set_modified(maps_modified)?;
         }
 
         Ok(true)
