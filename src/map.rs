@@ -1,4 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::non_canonical_partial_ord_impl)] // Pending mcarton/rust-derivative#115
 
 use crate::banner::Banner;
 use crate::tile::Tile;
