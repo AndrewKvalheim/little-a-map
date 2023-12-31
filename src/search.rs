@@ -2,7 +2,7 @@
 
 use crate::cache::{Cache, IdsBy};
 use crate::utilities::{progress_bar, read_gz};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use fastnbt::from_bytes;
 use glob::glob;
 use indicatif::ParallelProgressIterator;
@@ -198,7 +198,12 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
                     for chunk in region.iter() {
                         let fastanvil::ChunkData { data, x, z } = chunk?;
 
-                        let in_chunk = from_bytes::<T>(&data).unwrap().map_ids();
+                        let in_chunk = from_bytes::<T>(&data)
+                            .with_context(|| {
+                                format!("Failed to deserialize {} chunk ({x}, {z})", path.display())
+                            })
+                            .unwrap()
+                            .map_ids();
 
                         if log_enabled!(Debug) && !in_chunk.is_empty() {
                             let list = in_chunk.iter().sorted().map(ToString::to_string).join(", ");
@@ -213,7 +218,10 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
                 Err(fastanvil::Error::IO(e))
                     if e.kind() == std::io::ErrorKind::UnexpectedEof
                         && fs::metadata(&path)?.len() == 0 => {}
-                Err(e) => return Err(e.into()),
+                Err(e) => {
+                    return Err(e)
+                        .with_context(|| format!("Failed to deserialize {}", path.display()))
+                }
             }
 
             Ok(((rx, rz), in_region))
@@ -242,7 +250,9 @@ pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Resu
         .into_par_iter()
         .progress_with(bar.clone())
         .map(|(index, path)| {
-            let ids = from_bytes::<MapIdsOfPlayer>(&read_gz(&path)?)?.0;
+            let ids = from_bytes::<MapIdsOfPlayer>(&read_gz(&path)?)
+                .with_context(|| format!("Failed to deserialize {}", path.display()))?
+                .0;
 
             if log_enabled!(Debug) && !ids.is_empty() {
                 let list = ids.iter().sorted().map(ToString::to_string).join(", ");
