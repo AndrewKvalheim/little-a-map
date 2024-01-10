@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use test_context::{test_context, TestContext};
 
@@ -76,6 +76,17 @@ impl TestContext for Worlds {
     }
 }
 
+fn assert_swatch(path: impl AsRef<Path>) {
+    let view = image::open(path).unwrap();
+
+    assert_eq!(view.dimensions(), (128, 128));
+
+    for (i, rgb) in (0..).zip(palette::BASE.into_iter()).skip(1) {
+        let pixel = view.get_pixel(i, 0);
+        assert_eq!(pixel.to_rgb(), rgb.into());
+    }
+}
+
 #[test_context(Worlds)]
 #[test]
 fn spawn(worlds: &mut Worlds) {
@@ -124,15 +135,16 @@ fn banners(worlds: &mut Worlds) {
 
 #[test_context(Worlds)]
 #[test]
-fn swatch(worlds: &mut Worlds) {
+fn map_swatch(worlds: &mut Worlds) {
     for world in &worlds.0 {
-        let view = image::open(world.output.path().join("tiles/4/0/0.png")).unwrap();
+        assert_swatch(world.output.path().join("maps/1.png"));
+    }
+}
 
-        assert_eq!(view.dimensions(), (128, 128));
-
-        for (i, rgb) in (0..).zip(palette::BASE.into_iter()).skip(1) {
-            let pixel = view.get_pixel(i, 0);
-            assert_eq!(pixel.to_rgb(), rgb.into());
-        }
+#[test_context(Worlds)]
+#[test]
+fn tile_swatch(worlds: &mut Worlds) {
+    for world in &worlds.0 {
+        assert_swatch(world.output.path().join("tiles/4/0/0.png"));
     }
 }

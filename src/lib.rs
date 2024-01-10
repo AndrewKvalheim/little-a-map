@@ -43,16 +43,23 @@ pub const COMPATIBLE_VERSIONS: &str = "~1.20.4";
 struct IndexTemplate<'a> {
     center: [i32; 2],
     generator: &'a str,
+    maps_stacked: usize,
 }
 
 #[derive(Default)]
 struct Report {
+    pub maps: HashSet<u32>,
+    pub maps_rendered: usize,
+    pub maps_stacked: usize,
     pub tiles_rendered: usize,
     pub tiles: HashSet<(u8, i32, i32)>,
 }
 
 impl AddAssign for Report {
     fn add_assign(&mut self, other: Self) {
+        self.maps.extend(other.maps);
+        self.maps_rendered += other.maps_rendered;
+        self.maps_stacked = self.maps_stacked.max(other.maps_stacked);
         self.tiles_rendered += other.tiles_rendered;
         self.tiles.extend(other.tiles);
     }
@@ -84,8 +91,10 @@ impl Quadrant<'_> {
 
         if tile.zoom == 4 {
             let maps = || self.layers.iter().flatten().flatten();
+            let count = maps().count();
 
-            if maps().next().is_some() {
+            if count > 0 {
+                report.maps_stacked = report.maps_stacked.max(count);
                 report.tiles.insert((tile.zoom, tile.x, tile.y));
 
                 if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
@@ -102,7 +111,20 @@ impl Quadrant<'_> {
             }
         }
 
-        self.layers.pop();
+        report.maps.extend(
+            self.layers
+                .pop()
+                .unwrap()
+                .iter_mut()
+                .flatten()
+                .map(|(map, data)| {
+                    if map.render(self.output_path, data, self.force).unwrap(/* FIXME: Handle result */) {
+                        report.maps_rendered += 1;
+                    }
+
+                    map.id
+                }),
+        );
 
         Ok(report)
     }
@@ -183,6 +205,21 @@ pub fn render(
 
     bar.finish_and_clear();
 
+    let maps_pruned = glob(output_path.join("maps/*.png").to_str().unwrap())?
+        .map(|entry| -> Result<usize> {
+            let path = entry?;
+            let id: u32 = path.file_stem().unwrap().to_str().unwrap().parse()?;
+
+            Ok(if report.maps.contains(&id) {
+                0
+            } else {
+                debug!("Prune: {}", path.display());
+                fs::remove_file(path)?;
+                1
+            })
+        })
+        .sum::<Result<usize>>()?;
+
     let tiles_pruned = glob(output_path.join("tiles/*/*/*.png").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
@@ -252,16 +289,18 @@ pub fn render(
     let index_template = IndexTemplate {
         center: [level.spawn_z, level.spawn_x],
         generator: &format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+        maps_stacked: report.maps_stacked,
     };
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if !quiet {
-        if report.tiles_rendered == 0 && tiles_pruned == 0 {
+        if report.maps_rendered == 0 && report.tiles_rendered == 0 && tiles_pruned == 0 {
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {} and pruned {tiles_pruned} tiles in {:.2}s",
+                "Rendered {} tiles and {} maps and pruned {tiles_pruned} tiles and {maps_pruned} maps in {:.2}s",
                 report.tiles_rendered,
+                report.maps_rendered,
                 start_time.elapsed().as_secs_f32()
             );
         }

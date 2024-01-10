@@ -2,6 +2,7 @@
 #![allow(clippy::non_canonical_partial_ord_impl)] // Pending mcarton/rust-derivative#115
 
 use crate::banner::Banner;
+use crate::palette::{PALETTE, PALETTE_LEN};
 use crate::tile::Tile;
 use crate::utilities::read_gz;
 use anyhow::{Context, Result};
@@ -14,7 +15,8 @@ use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
-use std::fs;
+use std::fs::{self, File};
+use std::io::BufWriter;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -69,6 +71,53 @@ pub struct Map {
     #[derivative(PartialEq = "ignore")]
     #[derivative(PartialOrd = "ignore")]
     pub tile: Tile,
+}
+
+impl Map {
+    pub fn render(&self, output_path: &Path, data: &mut MapData, force: bool) -> Result<bool> {
+        let dir_path = output_path.join("maps");
+        let png_path = dir_path.join(self.id.to_string()).with_extension("png");
+
+        if !force
+            && fs::metadata(&png_path)
+                .and_then(|m| m.modified())
+                .map_or(false, |meta_modified| meta_modified >= self.modified)
+        {
+            return Ok(false);
+        }
+
+        let has_transparency = data.0.contains(&0);
+        let mut color_map = HashMap::with_capacity(PALETTE_LEN);
+        let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
+        if has_transparency {
+            color_map.insert(0, 0);
+            palette.extend(&PALETTE[0..3]);
+        }
+        for color in &mut data.0 {
+            let next = color_map.len();
+            *color = *color_map.entry(*color).or_insert_with(|| {
+                let (i, j) = (*color as usize * 3, u8::try_from(next).unwrap());
+                palette.extend(&PALETTE[i..i + 3]);
+                j
+            });
+        }
+
+        fs::create_dir_all(&dir_path)?;
+        let png_file = File::create(png_path)?;
+        let mut encoder = png::Encoder::new(BufWriter::new(&png_file), 128, 128);
+        encoder.set_color(png::ColorType::Indexed);
+        encoder.set_compression(png::Compression::Best);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_filter(png::FilterType::NoFilter);
+        encoder.set_palette(palette);
+        if has_transparency {
+            encoder.set_trns(vec![0]);
+        }
+        encoder.write_header()?.write_image_data(&data.0)?;
+        png_file.set_modified(self.modified)?;
+
+        Ok(true)
+    }
 }
 
 pub struct MapData(pub [u8; 128 * 128]);

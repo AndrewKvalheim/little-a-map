@@ -30,7 +30,7 @@
       }
 
       /* Pixelated layers */
-      .pixelated .leaflet-tile {
+      .pixelated, .pixelated .leaflet-tile {
         image-rendering: optimizeSpeed;
         image-rendering: pixelated;
       }
@@ -124,6 +124,37 @@
         margin-right: 6px;
         width: auto;
       }
+
+      /* Inspect */
+      .filled-map {
+        background-color: #d3bc94;
+        border: 4px solid #97856b;
+        padding: 4px;
+      }
+      .inspect {
+        display: flex;
+        margin-left: -0.75em;
+      }
+      .inspect input { display: none; }
+      .inspect label {
+          cursor: pointer;
+          display: block;
+          padding: 1ex 0.75em;
+          user-select: none;
+          white-space: nowrap;
+        }
+      .inspect label svg { vertical-align: middle; }
+      .inspect .filled-map { display: none; }
+      .inspect:not(:has(input:checked)) {
+        & label:first-of-type { background-color: #ddd; cursor: default; }
+        & .filled-map:first-of-type { display: block; }
+      }
+      {% for n in (1..maps_stacked) %}
+      .inspect:has(input:nth-of-type({{ n }}):checked) {
+        & label:nth-of-type({{ n }}) { background-color: #ddd; cursor: default; }
+        & .filled-map:nth-of-type({{ n }}) { display: block; }
+      }
+      {% endfor %}
     </style>
 
     <script
@@ -138,11 +169,14 @@
 
     <div style="display: none;">
       <svg id="banner" viewBox="0 0 6 8"><path d="m0 0h6v1h-1v5h-1v2h-2v-2h-1v-5h-1z"/><path d="m2 1h2v5h-2z" fill="currentColor"/></svg>
+      <svg id="filled-map" viewBox="0 0 16 16"><g transform-origin="3 10.5" transform="rotate(45) skewX(-10)"><rect width="7.5" height="10" fill="#fcfcf2" stroke="#a7a848" /><path d="M.5 2.5h5v4h-4v-2h2V8h-3" fill="none" stroke="#46402e" /></g></svg>
     </div>
 
     <script>
       (function () {
         const isDebug = window.location.hash === "#debug";
+        const tileSize = { x: 128, y: 128 };
+        const tileCoordinate = (latlng) => map.project(latlng, 0).floor().unscaleBy(tileSize).floor();
 
         const map = L.map("map", {
           attributionControl: false,
@@ -177,7 +211,7 @@
                 if (isDebug) {
                   const ids = maps.map((id) => `#${id}`);
                   const { lng: x, lat: z } = coordinates;
-                  const html = `<p>x = ${x}, z = ${z}</p><p>${ids.join(", ")}</p>`;
+                  const html = `<p>x = ${x}, z = ${z}</p><p>via ${ids.join(", ")}</p>`;
                   marker.bindPopup(html);
                 }
 
@@ -253,9 +287,6 @@
 
         if (isDebug) {
           // Utilities
-          const tileSize = { x: 128, y: 128 };
-          const tileCoordinate = (latlng) =>
-            map.project(latlng, 0).floor().unscaleBy(tileSize).floor();
           const tileBounds = (latlng) => {
             const nw = map.unproject(tileCoordinate(latlng).scaleBy(tileSize), 0);
             return [nw, { lat: nw.lat + tileSize.y, lng: nw.lng + tileSize.x }];
@@ -286,24 +317,32 @@
               }
             }, 50)
           );
-
-          // Click to inspect
-          map.on("click", ({ latlng }) => {
-            const tile = tileCoordinate(latlng);
-
-            fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
-              .then((r) => r.json())
-              .then((meta) => {
-                const x = Math.floor(latlng.lng);
-                const y = Math.floor(latlng.lat);
-                const ids = meta.maps.map((id) => `#${id}`);
-                const html = `<p>x = ${x}, z = ${y}</p><p>${ids.join(", ")}</p>`;
-
-                map.openPopup(html, [y, x]);
-              })
-              .catch(console.error);
-          });
         }
+
+        // Inspect
+        map.on("contextmenu", ({ latlng }) => {
+          const tile = tileCoordinate(latlng);
+
+          fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
+            .then((response) => {
+              const x = Math.floor(latlng.lng), y = Math.floor(latlng.lat);
+
+              if (response.status === 404) {
+                  map.openPopup("Uncharted", [y, x], { maxWidth: 360 });
+              } else {
+                response.json().then((meta) => {
+                  const html = `<div class="inspect">
+                    <div>${meta.maps.map((id, i) => `<label for="map-${id}"><svg width="16" height="16" viewBox="0 0 16 16"><use href="#filled-map"></svg> #${id}</label>`).join("")}</div>
+                    ${meta.maps.map((id, i) => `<input name="inspect" type="radio" id="map-${id}" ${i == 0 ? "checked" : ""}>`).join("")}
+                    ${meta.maps.map((id, i) => `<img class="filled-map pixelated" alt="Map #${id}" width="256" height="256" src="./maps/${id}.png" />`).join("")}
+                  </div>${isDebug ? `<p>x = ${x}, z = ${y}</p>`: ""}`;
+
+                  map.openPopup(html, [y, x], { maxWidth: 360 });
+                });
+              }
+            })
+            .catch(console.error);
+        });
       })();
     </script>
   </body>
