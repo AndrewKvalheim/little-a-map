@@ -47,13 +47,13 @@ struct IndexTemplate<'a> {
 
 #[derive(Default)]
 struct Report {
-    pub rendered: usize,
+    pub tiles_rendered: usize,
     pub tiles: HashSet<(u8, i32, i32)>,
 }
 
 impl AddAssign for Report {
     fn add_assign(&mut self, other: Self) {
-        self.rendered += other.rendered;
+        self.tiles_rendered += other.tiles_rendered;
         self.tiles.extend(other.tiles);
     }
 }
@@ -90,7 +90,7 @@ impl Quadrant<'_> {
 
                 if let Some(map_modified) = maps().map(|&(m, _)| m.modified).max() {
                     if tile.render(self.output_path, maps().rev(), map_modified, self.force)? {
-                        report.rendered += 1;
+                        report.tiles_rendered += 1;
                     }
                 }
             }
@@ -183,7 +183,7 @@ pub fn render(
 
     bar.finish_and_clear();
 
-    let pruned = glob(output_path.join("tiles/*/*/*.png").to_str().unwrap())?
+    let tiles_pruned = glob(output_path.join("tiles/*/*/*.png").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
             let relative = path.strip_prefix(output_path)?;
@@ -196,7 +196,7 @@ pub fn render(
                 0
             } else {
                 let base = output_path.join(format!("tiles/{zoom}/{x}/{y}"));
-                debug!("Prune: {}", base.as_path().to_str().unwrap());
+                debug!("Prune: {}", base.display());
                 fs::remove_file(base.with_extension("png"))?;
                 fs::remove_file(base.with_extension("meta.json"))?;
                 1
@@ -208,7 +208,7 @@ pub fn render(
         let banners_path = output_path.join("banners.json");
 
         if force
-            || pruned != 0
+            || tiles_pruned != 0
             || fs::metadata(&banners_path)
                 .and_then(|m| m.modified())
                 .map_or(true, |json_modified| json_modified < modified)
@@ -256,12 +256,12 @@ pub fn render(
     File::create(output_path.join("index.html"))?.write_all(index_template.render()?.as_bytes())?;
 
     if !quiet {
-        if report.rendered == 0 && pruned == 0 {
+        if report.tiles_rendered == 0 && tiles_pruned == 0 {
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {} and pruned {pruned} tiles in {:.2}s",
-                report.rendered,
+                "Rendered {} and pruned {tiles_pruned} tiles in {:.2}s",
+                report.tiles_rendered,
                 start_time.elapsed().as_secs_f32()
             );
         }
