@@ -125,12 +125,12 @@ pub fn search(
     };
     let players_searched = search_players(world_path, quiet, &mut cache)?;
     let entity_regions_searched = search_entities(world_path, quiet, bounds, &mut cache)?;
-    let level_regions_searched = search_level(world_path, quiet, bounds, &mut cache)?;
+    let block_regions_searched = search_level(world_path, quiet, bounds, &mut cache)?;
     cache.write_to(&cache_path)?;
 
     if !quiet {
         println!(
-            "Searched {level_regions_searched} level regions, {entity_regions_searched} entity regions, and {players_searched} players in {:.2}s",
+            "Searched {block_regions_searched} block regions, {entity_regions_searched} entity regions, and {players_searched} players in {:.2}s",
             start_time.elapsed().as_secs_f32()
         );
     }
@@ -138,7 +138,7 @@ pub fn search(
     Ok(cache
         .map_ids_by_entities_region
         .into_values()
-        .chain(cache.map_ids_by_level_region.into_values())
+        .chain(cache.map_ids_by_block_region.into_values())
         .chain(cache.map_ids_by_player.into_values())
         .flatten()
         .collect())

@@ -20,7 +20,7 @@ pub struct Cache {
     version: String,
 
     pub map_ids_by_entities_region: IdsBy<(i32, i32)>,
-    pub map_ids_by_level_region: IdsBy<(i32, i32)>,
+    pub map_ids_by_block_region: IdsBy<(i32, i32)>,
     pub map_ids_by_player: IdsBy<usize>,
 }
 
@@ -55,7 +55,7 @@ impl Default for Cache {
     fn default() -> Self {
         Self {
             map_ids_by_entities_region: HashMap::default(),
-            map_ids_by_level_region: HashMap::default(),
+            map_ids_by_block_region: HashMap::default(),
             map_ids_by_player: HashMap::default(),
             modified: Option::default(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -96,7 +96,7 @@ mod test {
             serde_json::from_value::<Cache>(json!({
                 "version": version,
                 "map_ids_by_entities_region": {},
-                "map_ids_by_level_region": {},
+                "map_ids_by_block_region": {},
                 "map_ids_by_player": {}
             }))
         };

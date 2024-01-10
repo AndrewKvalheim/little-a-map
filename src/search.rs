@@ -292,6 +292,6 @@ pub fn search_level(
     let (length, ids) =
         search_regions::<MapIdsOfLevelChunk>(world_path, quiet, bounds, cache, pattern)?;
 
-    cache.map_ids_by_level_region.extend(ids);
+    cache.map_ids_by_block_region.extend(ids);
     Ok(length)
 }
