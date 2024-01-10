@@ -177,6 +177,7 @@
         const isDebug = window.location.hash === "#debug";
         const tileSize = { x: 128, y: 128 };
         const tileCoordinate = (latlng) => map.project(latlng, 0).floor().unscaleBy(tileSize).floor();
+        const unchartedStatuses = [403, 404];
 
         const map = L.map("map", {
           attributionControl: false,
@@ -327,7 +328,7 @@
             .then((response) => {
               const x = Math.floor(latlng.lng), y = Math.floor(latlng.lat);
 
-              if (response.status === 404) {
+              if (unchartedStatuses.includes(response.status)) {
                   map.openPopup("Uncharted", [y, x], { maxWidth: 360 });
               } else {
                 response.json().then((meta) => {
