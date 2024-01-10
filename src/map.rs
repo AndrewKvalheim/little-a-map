@@ -183,6 +183,8 @@ impl MapScan {
                         .entry(tile.clone())
                         .or_default()
                         .insert(Map { modified, id, tile });
+                } else {
+                    debug!("Ignoring map {id}");
                 }
 
                 Ok(results)
