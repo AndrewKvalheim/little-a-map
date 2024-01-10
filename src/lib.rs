@@ -128,20 +128,23 @@ pub fn search(
     let block_regions_searched = search_level(world_path, quiet, bounds, &mut cache)?;
     cache.write_to(&cache_path)?;
 
-    if !quiet {
-        println!(
-            "Searched {block_regions_searched} block regions, {entity_regions_searched} entity regions, and {players_searched} players in {:.2}s",
-            start_time.elapsed().as_secs_f32()
-        );
-    }
-
-    Ok(cache
+    let ids = cache
         .map_ids_by_entities_region
         .into_values()
         .chain(cache.map_ids_by_block_region.into_values())
         .chain(cache.map_ids_by_player.into_values())
         .flatten()
-        .collect())
+        .collect::<HashSet<_>>();
+
+    if !quiet {
+        println!(
+            "Found {} map items across {block_regions_searched} block regions, {entity_regions_searched} entity regions, and {players_searched} players in {:.2}s",
+            ids.len(),
+            start_time.elapsed().as_secs_f32()
+        );
+    }
+
+    Ok(ids)
 }
 
 pub fn render(
@@ -155,7 +158,6 @@ pub fn render(
     let start_time = Instant::now();
 
     let results = MapScan::run(world_path, ids)?;
-    let maps_rendered = results.maps_by_tile.len();
 
     let length = results.root_tiles.len() * 4_usize.pow(4);
     let bar = progress_bar(quiet, "Render", length, "tiles");
@@ -258,7 +260,7 @@ pub fn render(
             println!("Already up-to-date");
         } else {
             println!(
-                "Rendered {} and pruned {pruned} tiles from {maps_rendered} map items in {:.2}s",
+                "Rendered {} and pruned {pruned} tiles in {:.2}s",
                 report.rendered,
                 start_time.elapsed().as_secs_f32()
             );
