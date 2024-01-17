@@ -1,7 +1,7 @@
 [package]
 name = "little-a-map"
 version = "0.12.1"
-repository = "https://github.com/AndrewKvalheim/little-a-map"
+repository = "https://codeberg.org/AndrewKvalheim/little-a-map"
 categories = ["command-line-utilities"]
 keywords = ["minecraft"]
 description = "Players can have little a map—if they've surveyed the area in-game. This tool renders a composite of player-created map items with the goal of minimizing external effects on survival gameplay."

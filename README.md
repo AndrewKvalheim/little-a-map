@@ -28,7 +28,7 @@ Subsequent runs will re-render only changed tiles.
 
 _Little a Map_ is inspired by _[Papyri]_ by [Jason Green].
 
-[demo]: https://andrewkvalheim.github.io/little-a-map/
-[demo-badge]: https://img.shields.io/badge/dynamic/json?color=green&label=demo&query=%24.version&url=https%3A%2F%2Fandrewkvalheim.github.io%2Flittle-a-map%2Fbadge.json
+[demo]: https://andrewkvalheim.codeberg.page/little-a-map/
+[demo-badge]: https://img.shields.io/badge/dynamic/json?color=green&label=demo&query=%24.version&url=https%3A%2F%2Fandrewkvalheim.codeberg.page%2Flittle-a-map%2Fbadge.json
 [jason green]: https://jason.green.io/
 [papyri]: https://github.com/jason-green-io/papyri
