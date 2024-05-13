@@ -9,6 +9,7 @@ authors = ["Andrew Kvalheim <Andrew@Kvalhe.im>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 edition = "2021"
+rust-version = "1.75.0" # rust-lang/rust#98245
 
 [lints.clippy]
 nursery = "warn"
