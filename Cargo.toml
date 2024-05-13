@@ -1,6 +1,6 @@
 [package]
 name = "little-a-map"
-version = "0.12.2"
+version = "0.12.3"
 repository = "https://codeberg.org/AndrewKvalheim/little-a-map"
 categories = ["command-line-utilities"]
 keywords = ["minecraft"]
