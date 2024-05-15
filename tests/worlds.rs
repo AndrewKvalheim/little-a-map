@@ -69,11 +69,15 @@ impl World {
     }
 }
 
-struct Worlds([Lazy<World>; 1]);
+struct Worlds([Lazy<World>; 3]);
 
 impl TestContext for Worlds {
     fn setup() -> Self {
-        Self([Lazy::new(|| World::load(1, 20, 6))])
+        Self([
+            Lazy::new(|| World::load(1, 20, 2)),
+            Lazy::new(|| World::load(1, 20, 4)),
+            Lazy::new(|| World::load(1, 20, 6)),
+        ])
     }
 }
 
