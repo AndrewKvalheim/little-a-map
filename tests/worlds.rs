@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use test_context::{test_context, TestContext};
 
-const MAP_IDS: [u32; 11] = [
+const MAP_IDS: [u32; 12] = [
     0, // Player inventory
     1, // Item frame
     // 2, // Enlarged
@@ -23,6 +23,7 @@ const MAP_IDS: [u32; 11] = [
     9,  // Shulker box in chest
     10, // Shulker box in player inventory
     11, // Glow item frame (enlarged from #2)
+    12, // Stack in player inventory
 ];
 
 const BANNERS: [(Option<&str>, &str); 17] = [
@@ -72,7 +73,7 @@ struct Worlds([Lazy<World>; 1]);
 
 impl TestContext for Worlds {
     fn setup() -> Self {
-        Self([Lazy::new(|| World::load(1, 20, 4))])
+        Self([Lazy::new(|| World::load(1, 20, 6))])
     }
 }
 

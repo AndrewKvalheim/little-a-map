@@ -1,4 +1,5 @@
 use derivative::Derivative;
+use fastnbt::IntArray;
 use serde::{Deserialize, Deserializer};
 use serde_with::{json::JsonString, serde_as};
 
@@ -17,25 +18,42 @@ pub struct Banner {
 
 impl<'de> Deserialize<'de> for Banner {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Internal {
+            V1204(InternalV1204),
+            V1205(InternalV1205),
+        }
+
         #[serde_as]
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
-        struct Internal {
+        struct InternalV1204 {
             color: String,
             #[serde_as(as = "Option<JsonString<_>>")]
             name: Option<Name>,
             pos: Pos,
         }
 
+        #[serde_as]
+        #[derive(Deserialize)]
+        struct InternalV1205 {
+            #[serde(default = "default_color")]
+            color: String,
+            #[serde_as(as = "Option<JsonString<_>>")]
+            name: Option<String>,
+            pos: IntArray,
+        }
+
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Name {
-            V1203(V1203),
+            V1203(NameV1203),
             V1204(String),
         }
 
         #[derive(Deserialize)]
-        struct V1203 {
+        struct NameV1203 {
             text: String,
         }
 
@@ -46,15 +64,26 @@ impl<'de> Deserialize<'de> for Banner {
             z: i32,
         }
 
-        let internal = Internal::deserialize(deserializer)?;
-        Ok(Self {
-            color: internal.color,
-            label: internal.name.map(|name| match name {
-                Name::V1203(n) => n.text,
-                Name::V1204(n) => n,
-            }),
-            x: internal.pos.x,
-            z: internal.pos.z,
+        fn default_color() -> String {
+            "white".to_owned()
+        }
+
+        Ok(match Internal::deserialize(deserializer)? {
+            Internal::V1204(i) => Self {
+                color: i.color,
+                label: i.name.map(|name| match name {
+                    Name::V1203(n) => n.text,
+                    Name::V1204(n) => n,
+                }),
+                x: i.pos.x,
+                z: i.pos.z,
+            },
+            Internal::V1205(i) => Self {
+                color: i.color,
+                label: i.name,
+                x: i.pos[0],
+                z: i.pos[2],
+            },
         })
     }
 }

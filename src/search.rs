@@ -22,6 +22,32 @@ trait ContainsMapIds {
     fn map_ids(self) -> HashSet<u32>;
 }
 
+struct MapIdsOfContainer(HashSet<u32>);
+impl<'de> Deserialize<'de> for MapIdsOfContainer {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Internal {
+            #[serde(rename = "minecraft:container")]
+            container: Option<Vec<Slot>>,
+        }
+
+        #[derive(Deserialize)]
+        struct Slot {
+            item: MapIdsOfItem,
+        }
+
+        let internal = Internal::deserialize(deserializer)?;
+        Ok(Self(
+            internal
+                .container
+                .into_iter()
+                .flatten()
+                .flat_map(|i| i.item.0)
+                .collect(),
+        ))
+    }
+}
+
 struct MapIdsOfEntity(HashSet<u32>);
 impl<'de> Deserialize<'de> for MapIdsOfEntity {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -76,30 +102,73 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
         #[serde(tag = "id")]
         enum Internal {
             #[serde(rename = "minecraft:shulker_box")]
-            BlockEntity { tag: BlockEntityTag },
+            Container(Container),
 
             #[serde(rename = "minecraft:filled_map")]
-            FilledMap { tag: FilledMapTag },
+            FilledMap(FilledMap),
 
             #[serde(other)]
             Other,
         }
 
         #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct BlockEntityTag {
-            block_entity_tag: MapIdsOfEntity,
+        #[serde(untagged)]
+        enum Container {
+            V1204(ContainerV1204),
+            V1205(ContainerV1205),
+        }
+
+        #[derive(serde_query::Deserialize)]
+        struct ContainerV1204 {
+            #[query(".tag.BlockEntityTag")]
+            map_ids: MapIdsOfEntity,
         }
 
         #[derive(Deserialize)]
-        struct FilledMapTag {
+        struct ContainerV1205 {
+            components: MapIdsOfContainer,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum FilledMap {
+            V1204(FilledMapV1204),
+            V1205(FilledMapV1205),
+        }
+
+        #[derive(Deserialize)]
+        struct FilledMapV1204 {
+            tag: FilledMapV1204Tag,
+        }
+
+        #[derive(Deserialize)]
+        struct FilledMapV1204Tag {
             display: Option<IgnoredAny>,
             map: u32,
         }
 
+        #[derive(Deserialize)]
+        struct FilledMapV1205 {
+            components: FilledMapV1205Components,
+        }
+
+        #[derive(Deserialize)]
+        struct FilledMapV1205Components {
+            #[serde(rename = "minecraft:item_name")]
+            item_name: Option<IgnoredAny>,
+            #[serde(rename = "minecraft:map_id")]
+            map_id: u32,
+        }
+
         Ok(Self(match Internal::deserialize(deserializer)? {
-            Internal::BlockEntity { tag } => tag.block_entity_tag.0.into_iter().collect(),
-            Internal::FilledMap { tag } if tag.display.is_none() => iter::once(tag.map).collect(),
+            Internal::Container(Container::V1204(c)) => c.map_ids.0.into_iter().collect(),
+            Internal::Container(Container::V1205(t)) => t.components.0.into_iter().collect(),
+            Internal::FilledMap(FilledMap::V1204(t)) if t.tag.display.is_none() => {
+                iter::once(t.tag.map).collect()
+            }
+            Internal::FilledMap(FilledMap::V1205(t)) if t.components.item_name.is_none() => {
+                iter::once(t.components.map_id).collect()
+            }
             _ => HashSet::default(),
         }))
     }
