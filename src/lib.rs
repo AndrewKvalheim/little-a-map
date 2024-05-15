@@ -1,10 +1,4 @@
-#![allow(
-    clippy::implicit_hasher,
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::similar_names,
-    clippy::too_many_lines
-)]
+#![allow(clippy::implicit_hasher)]
 
 mod banner;
 mod cache;
