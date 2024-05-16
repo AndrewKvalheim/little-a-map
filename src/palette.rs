@@ -68,7 +68,7 @@ const FACTORS: [u8; 4] = [180, 220, 255, 135];
 
 pub const PALETTE_LEN: usize = BASE.len() * FACTORS.len();
 
-pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
+pub static PALETTE: Lazy<[u8; PALETTE_LEN * 3]> = Lazy::new(|| {
     BASE.iter()
         .flat_map(|rgb| {
             FACTORS.iter().flat_map(move |&f| {
@@ -78,7 +78,9 @@ pub static PALETTE: Lazy<Vec<u8>> = Lazy::new(|| {
                 )
             })
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
 });
 
 #[cfg(test)]
