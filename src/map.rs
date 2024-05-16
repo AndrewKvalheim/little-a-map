@@ -86,13 +86,8 @@ impl Map {
             return Ok(false);
         }
 
-        let has_transparency = data.0.contains(&0);
         let mut color_map = HashMap::with_capacity(PALETTE_LEN);
         let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
-        if has_transparency {
-            color_map.insert(0, 0);
-            palette.extend(&PALETTE[0..3]);
-        }
         for color in &mut data.0 {
             let next = color_map.len();
             *color = *color_map.entry(*color).or_insert_with(|| {
@@ -110,9 +105,6 @@ impl Map {
         encoder.set_depth(png::BitDepth::Eight);
         encoder.set_filter(png::FilterType::NoFilter);
         encoder.set_palette(palette);
-        if has_transparency {
-            encoder.set_trns(vec![0]);
-        }
         encoder.write_header()?.write_image_data(&data.0)?;
         png_file.set_modified(self.modified)?;
 

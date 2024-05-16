@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 
+const BACKGROUND: [u8; 3] = [211, 188, 148];
 pub const BASE: [[u8; 3]; 62] = [
     [0, 0, 0],
     [127, 178, 56],
@@ -69,7 +70,8 @@ const FACTORS: [u8; 4] = [180, 220, 255, 135];
 pub const PALETTE_LEN: usize = BASE.len() * FACTORS.len();
 
 pub static PALETTE: Lazy<[u8; PALETTE_LEN * 3]> = Lazy::new(|| {
-    BASE.iter()
+    let mut palette: [u8; PALETTE_LEN * 3] = BASE
+        .iter()
         .flat_map(|rgb| {
             FACTORS.iter().flat_map(move |&f| {
                 rgb.iter().map(
@@ -80,7 +82,9 @@ pub static PALETTE: Lazy<[u8; PALETTE_LEN * 3]> = Lazy::new(|| {
         })
         .collect::<Vec<_>>()
         .try_into()
-        .unwrap()
+        .unwrap();
+    palette[0..3].copy_from_slice(&BACKGROUND);
+    palette
 });
 
 #[cfg(test)]
@@ -89,7 +93,8 @@ mod test {
 
     #[test]
     fn derive() {
-        assert_eq!(PALETTE[0..12], [0; 12]);
+        assert_eq!(PALETTE[0..3], [211, 188, 148]);
+        assert_eq!(PALETTE[3..12], [0; 9]);
         assert_eq!(PALETTE[12..15], [89, 125, 39]);
         assert_eq!(PALETTE[15..18], [109, 153, 48]);
         assert_eq!(PALETTE[18..21], [127, 178, 56]);
