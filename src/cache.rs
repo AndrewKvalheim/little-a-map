@@ -88,23 +88,40 @@ fn validate_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String
 #[cfg(test)]
 mod test {
     use super::*;
+    use forgiving_semver::Version;
     use serde_json::json;
+
+    fn next_version(text: impl AsRef<str>) -> String {
+        let mut version = Version::parse(text.as_ref()).unwrap();
+        match version {
+            Version { patch, .. } if patch > 0 => version.patch -= 1,
+            Version { minor, .. } if minor > 0 => version.minor -= 1,
+            _ => version.major -= 1,
+        }
+        version.to_string()
+    }
+
+    fn previous_version(text: impl AsRef<str>) -> String {
+        let mut version = Version::parse(text.as_ref()).unwrap();
+        version.increment_patch();
+        version.to_string()
+    }
+
+    fn with_version(version: impl AsRef<str>) -> Result<Cache> {
+        Ok(serde_json::from_value::<Cache>(json!({
+            "version": version.as_ref(),
+            "map_ids_by_entities_region": {},
+            "map_ids_by_block_region": {},
+            "map_ids_by_player": {}
+        }))?)
+    }
 
     #[test]
     fn validate_version() {
-        let with_version = |version| {
-            serde_json::from_value::<Cache>(json!({
-                "version": version,
-                "map_ids_by_entities_region": {},
-                "map_ids_by_block_region": {},
-                "map_ids_by_player": {}
-            }))
-        };
-
         let current = env!("CARGO_PKG_VERSION");
-        let (rest, patch) = current.split_at(current.rmatch_indices('.').next().unwrap().0 + 1);
 
         assert!(with_version(current).is_ok());
-        assert!(with_version(&format!("{rest}{}", patch.parse::<u8>().unwrap() + 1)).is_err());
+        assert!(with_version(next_version(current)).is_err());
+        assert!(with_version(previous_version(current)).is_err());
     }
 }
