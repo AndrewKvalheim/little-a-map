@@ -1,13 +1,16 @@
+use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
 use little_a_map::{level::Level, palette, render, search};
 use rstest::*;
 use rstest_reuse::{self, *};
 use serde::Deserialize;
-use std::collections::HashSet;
-use std::fs::File;
+use std::collections::{HashMap, HashSet};
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::thread;
+use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
 const MAP_IDS: [u32; 12] = [
@@ -82,6 +85,37 @@ impl FromStr for World {
     }
 }
 
+fn assert_modifications(
+    expect_modified: &[&str],
+    before: &HashMap<String, SystemTime>,
+    after: &HashMap<String, SystemTime>,
+) {
+    for path in before.keys() {
+        assert!(after.contains_key(path), "{path} vanished");
+    }
+
+    for (path, modified) in after {
+        if expect_modified.contains(&path.as_ref()) {
+            assert!(*modified > before[path], "{path} should be modified");
+        } else {
+            assert_eq!(*modified, before[path], "{path} unexpectedly modified");
+        }
+    }
+}
+
+fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
+    glob(base.join("**/*.*").to_str().unwrap())
+        .unwrap()
+        .map(|entry| {
+            let absolute = entry.unwrap();
+            let relative = absolute.strip_prefix(base).unwrap();
+            let modified = fs::metadata(&absolute).unwrap().modified().unwrap();
+
+            (relative.to_str().unwrap().to_owned(), modified)
+        })
+        .collect()
+}
+
 #[template]
 #[rstest]
 #[case::world_1_20_2("1.20.2")]
@@ -138,4 +172,22 @@ fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] path: &str) {
         let pixel = view.get_pixel(i, 0);
         assert_eq!(pixel.to_rgb(), rgb.into());
     }
+}
+
+#[apply(worlds)]
+fn rerun(world: World) {
+    let ids_1 = world.search();
+    let modifications_1 = observe_modifications(world.render(&ids_1));
+
+    thread::sleep(Duration::from_millis(100));
+
+    let ids_2 = world.search();
+    let modifications_2 = observe_modifications(world.render(&ids_2));
+
+    assert_eq!(ids_2, ids_1);
+    assert_modifications(
+        &[".cache/little-a-map.dat", "index.html"],
+        &modifications_1,
+        &modifications_2,
+    );
 }
