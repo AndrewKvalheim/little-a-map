@@ -6,7 +6,7 @@ use rstest_reuse::{self, *};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tempfile::TempDir;
 
@@ -47,9 +47,21 @@ const BANNERS: [(Option<&str>, &str); 17] = [
 ];
 
 struct World {
-    pub ids: HashSet<u32>,
-    pub level: Level,
-    pub output: TempDir,
+    input: PathBuf,
+    output: TempDir,
+    level: Level,
+}
+
+impl World {
+    fn render(&self, ids: &HashSet<u32>) -> &Path {
+        let output = self.output.path();
+        render(&self.input, output, true, true, &self.level, ids).unwrap();
+        output
+    }
+
+    fn search(&self) -> HashSet<u32> {
+        search(&self.input, self.output.path(), true, true, None).unwrap()
+    }
 }
 
 impl FromStr for World {
@@ -58,15 +70,15 @@ impl FromStr for World {
     fn from_str(version: &str) -> Result<Self, Self::Err> {
         let input =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("fixtures/world-{version}"));
-        let output = tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap();
+        let world = Self {
+            level: Level::from_world_path(&input).unwrap(),
+            output: tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap(),
+            input,
+        };
 
-        let level = Level::from_world_path(&input).unwrap();
-        assert_eq!(level.version.to_string(), version);
+        assert_eq!(world.level.version.to_string(), version);
 
-        let ids = search(&input, output.path(), true, true, None).unwrap();
-        render(&input, output.path(), true, true, &level, &ids).unwrap();
-
-        Ok(Self { ids, level, output })
+        Ok(world)
     }
 }
 
@@ -84,7 +96,7 @@ fn spawn(world: World) {
 
 #[apply(worlds)]
 fn map_ids(world: World) {
-    assert_equal(world.ids.iter().sorted(), &MAP_IDS);
+    assert_equal(world.search().iter().sorted(), &MAP_IDS);
 }
 
 #[apply(worlds)]
@@ -106,7 +118,8 @@ fn banners(world: World) {
         pub color: String,
     }
 
-    let json = File::open(world.output.path().join("banners.json")).unwrap();
+    let output = world.render(&world.search());
+    let json = File::open(output.join("banners.json")).unwrap();
     let geo: GeoJson = serde_json::from_reader(json).unwrap();
 
     let actual = geo.features.into_iter().sorted().map(|f| (f.name, f.color));
@@ -116,7 +129,8 @@ fn banners(world: World) {
 
 #[apply(worlds)]
 fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] path: &str) {
-    let view = image::open(world.output.path().join(path)).unwrap();
+    let output = world.render(&world.search());
+    let view = image::open(output.join(path)).unwrap();
 
     assert_eq!(view.dimensions(), (128, 128));
 
