@@ -52,8 +52,9 @@ zstd = "0.13"
 [dev-dependencies]
 criterion = "0.5"
 image = "0.25"
+rstest = "0.19"
+rstest_reuse = "0.6"
 tempfile = "3.3"
-test-context = "0.3"
 
 [[bench]]
 name = "default"
