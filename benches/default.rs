@@ -26,7 +26,7 @@ pub fn bench_render(c: &mut Criterion) {
                 )
             },
             BatchSize::SmallInput,
-        )
+        );
     });
     group.finish();
 }
@@ -56,7 +56,7 @@ pub fn bench_search(c: &mut Criterion) {
                 black_box(true),
                 Some(&bounds),
             )
-        })
+        });
     });
     group.finish();
 }
