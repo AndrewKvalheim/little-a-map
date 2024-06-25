@@ -126,7 +126,7 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
 
         #[derive(Deserialize)]
         struct ContainerV1205 {
-            components: MapIdsOfContainer,
+            components: Option<MapIdsOfContainer>,
         }
 
         #[derive(Deserialize)]
@@ -162,7 +162,9 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
 
         Ok(Self(match Internal::deserialize(deserializer)? {
             Internal::Container(Container::V1204(c)) => c.map_ids.0.into_iter().collect(),
-            Internal::Container(Container::V1205(t)) => t.components.0.into_iter().collect(),
+            Internal::Container(Container::V1205(t)) => {
+                t.components.into_iter().flat_map(|c| c.0).collect()
+            }
             Internal::FilledMap(FilledMap::V1204(t)) if t.tag.display.is_none() => {
                 iter::once(t.tag.map).collect()
             }

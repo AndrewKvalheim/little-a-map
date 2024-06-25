@@ -13,7 +13,7 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
-const MAP_IDS: [u32; 12] = [
+const MAP_IDS: [u32; 14] = [
     0, // Player inventory
     1, // Item frame
     // 2, // Enlarged
@@ -27,6 +27,8 @@ const MAP_IDS: [u32; 12] = [
     10, // Shulker box in player inventory
     11, // Glow item frame (enlarged from #2)
     12, // Stack in player inventory
+    13, // Ender chest
+    14, // Shulker box in ender chest
 ];
 
 const BANNERS: [(Option<&str>, &str); 17] = [
