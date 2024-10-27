@@ -142,6 +142,22 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
             Bundle(Bundle),
 
             #[serde(rename = "minecraft:shulker_box")]
+            #[serde(alias = "minecraft:black_shulker_box")]
+            #[serde(alias = "minecraft:blue_shulker_box")]
+            #[serde(alias = "minecraft:brown_shulker_box")]
+            #[serde(alias = "minecraft:cyan_shulker_box")]
+            #[serde(alias = "minecraft:gray_shulker_box")]
+            #[serde(alias = "minecraft:green_shulker_box")]
+            #[serde(alias = "minecraft:light_blue_shulker_box")]
+            #[serde(alias = "minecraft:light_gray_shulker_box")]
+            #[serde(alias = "minecraft:lime_shulker_box")]
+            #[serde(alias = "minecraft:magenta_shulker_box")]
+            #[serde(alias = "minecraft:orange_shulker_box")]
+            #[serde(alias = "minecraft:pink_shulker_box")]
+            #[serde(alias = "minecraft:purple_shulker_box")]
+            #[serde(alias = "minecraft:red_shulker_box")]
+            #[serde(alias = "minecraft:white_shulker_box")]
+            #[serde(alias = "minecraft:yellow_shulker_box")]
             Container(Container),
 
             #[serde(rename = "minecraft:filled_map")]
