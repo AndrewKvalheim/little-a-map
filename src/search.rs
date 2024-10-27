@@ -22,6 +22,27 @@ trait ContainsMapIds {
     fn map_ids(self) -> HashSet<u32>;
 }
 
+struct MapIdsOfBundle(HashSet<u32>);
+impl<'de> Deserialize<'de> for MapIdsOfBundle {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Internal {
+            #[serde(rename = "minecraft:bundle_contents")]
+            contents: Option<Vec<MapIdsOfItem>>,
+        }
+
+        let internal = Internal::deserialize(deserializer)?;
+        Ok(Self(
+            internal
+                .contents
+                .into_iter()
+                .flatten()
+                .flat_map(|i| i.0)
+                .collect(),
+        ))
+    }
+}
+
 struct MapIdsOfContainer(HashSet<u32>);
 impl<'de> Deserialize<'de> for MapIdsOfContainer {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -101,6 +122,25 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
         #[derive(Deserialize)]
         #[serde(tag = "id")]
         enum Internal {
+            #[serde(rename = "minecraft:bundle")]
+            #[serde(alias = "minecraft:black_bundle")]
+            #[serde(alias = "minecraft:blue_bundle")]
+            #[serde(alias = "minecraft:brown_bundle")]
+            #[serde(alias = "minecraft:cyan_bundle")]
+            #[serde(alias = "minecraft:gray_bundle")]
+            #[serde(alias = "minecraft:green_bundle")]
+            #[serde(alias = "minecraft:light_blue_bundle")]
+            #[serde(alias = "minecraft:light_gray_bundle")]
+            #[serde(alias = "minecraft:lime_bundle")]
+            #[serde(alias = "minecraft:magenta_bundle")]
+            #[serde(alias = "minecraft:orange_bundle")]
+            #[serde(alias = "minecraft:pink_bundle")]
+            #[serde(alias = "minecraft:purple_bundle")]
+            #[serde(alias = "minecraft:red_bundle")]
+            #[serde(alias = "minecraft:white_bundle")]
+            #[serde(alias = "minecraft:yellow_bundle")]
+            Bundle(Bundle),
+
             #[serde(rename = "minecraft:shulker_box")]
             Container(Container),
 
@@ -109,6 +149,11 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
 
             #[serde(other)]
             Other,
+        }
+
+        #[derive(Deserialize)]
+        struct Bundle {
+            components: Option<MapIdsOfBundle>,
         }
 
         #[derive(Deserialize)]
@@ -161,6 +206,7 @@ impl<'de> Deserialize<'de> for MapIdsOfItem {
         }
 
         Ok(Self(match Internal::deserialize(deserializer)? {
+            Internal::Bundle(t) => t.components.into_iter().flat_map(|c| c.0).collect(),
             Internal::Container(Container::V1204(c)) => c.map_ids.0.into_iter().collect(),
             Internal::Container(Container::V1205(t)) => {
                 t.components.into_iter().flat_map(|c| c.0).collect()

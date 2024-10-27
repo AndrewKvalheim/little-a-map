@@ -14,22 +14,25 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
-const MAP_IDS: [(&str, u32); 14] = [
+const MAP_IDS: [(&str, u32); 17] = [
     (">=1.0", 0), // Player inventory
     (">=1.0", 1), // Item frame
     // 2 Enlarged to #11
-    (">=1.0", 3),    // Chest
-    (">=1.0", 4),    // Trapped chest
-    (">=1.0", 5),    // Minecart with chest
-    (">=1.0.6", 6),  // Boat with chest
-    (">=1.11", 7),   // Shulker box
-    (">=1.11", 8),   // Llama
-    (">=1.11", 9),   // Shulker box in chest
-    (">=1.11", 10),  // Shulker box in player inventory
-    (">=1.17", 11),  // Glow item frame
-    (">=1.0", 12),   // Stack in player inventory
-    (">=1.3.1", 13), // Ender chest
-    (">=1.11", 14),  // Shulker box in ender chest
+    (">=1.0", 3),     // Chest
+    (">=1.0", 4),     // Trapped chest
+    (">=1.0", 5),     // Minecart with chest
+    (">=1.0.6", 6),   // Boat with chest
+    (">=1.11", 7),    // Shulker box
+    (">=1.11", 8),    // Llama
+    (">=1.11", 9),    // Shulker box in chest
+    (">=1.11", 10),   // Shulker box in player inventory
+    (">=1.17", 11),   // Glow item frame
+    (">=1.0", 12),    // Stack in player inventory
+    (">=1.3.1", 13),  // Ender chest
+    (">=1.11", 14),   // Shulker box in ender chest
+    (">=1.21.2", 15), // Bundle in chest
+    (">=1.21.2", 16), // Bundle in bundle in chest
+    (">=1.21.2", 17), // Bundle in player inventory
 ];
 
 const BANNERS: [(Option<&str>, &str); 17] = [
@@ -126,6 +129,7 @@ fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
 #[case::world_1_20_6("1.20.6")]
 #[case::world_1_21_0("1.21.0")]
 #[case::world_1_21_1("1.21.1")]
+#[case::world_1_21_3("1.21.3")]
 fn worlds(#[case] world: World) {}
 
 #[apply(worlds)]
