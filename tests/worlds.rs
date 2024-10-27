@@ -1,3 +1,4 @@
+use forgiving_semver::VersionReq;
 use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
@@ -13,22 +14,22 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
-const MAP_IDS: [u32; 14] = [
-    0, // Player inventory
-    1, // Item frame
-    // 2, // Enlarged
-    3,  // Chest
-    4,  // Trapped chest
-    5,  // Minecart with chest
-    6,  // Boat with chest
-    7,  // Shulker box
-    8,  // Llama
-    9,  // Shulker box in chest
-    10, // Shulker box in player inventory
-    11, // Glow item frame (enlarged from #2)
-    12, // Stack in player inventory
-    13, // Ender chest
-    14, // Shulker box in ender chest
+const MAP_IDS: [(&str, u32); 14] = [
+    (">=1.0", 0), // Player inventory
+    (">=1.0", 1), // Item frame
+    // 2 Enlarged to #11
+    (">=1.0", 3),    // Chest
+    (">=1.0", 4),    // Trapped chest
+    (">=1.0", 5),    // Minecart with chest
+    (">=1.0.6", 6),  // Boat with chest
+    (">=1.11", 7),   // Shulker box
+    (">=1.11", 8),   // Llama
+    (">=1.11", 9),   // Shulker box in chest
+    (">=1.11", 10),  // Shulker box in player inventory
+    (">=1.17", 11),  // Glow item frame
+    (">=1.0", 12),   // Stack in player inventory
+    (">=1.3.1", 13), // Ender chest
+    (">=1.11", 14),  // Shulker box in ender chest
 ];
 
 const BANNERS: [(Option<&str>, &str); 17] = [
@@ -134,7 +135,13 @@ fn spawn(world: World) {
 
 #[apply(worlds)]
 fn map_ids(world: World) {
-    assert_equal(world.search().iter().sorted(), &MAP_IDS);
+    assert_equal(
+        world.search().iter().sorted(),
+        MAP_IDS
+            .iter()
+            .filter(|(v, _)| VersionReq::parse(v).unwrap().matches(&world.level.version))
+            .map(|(_, id)| id),
+    );
 }
 
 #[apply(worlds)]
