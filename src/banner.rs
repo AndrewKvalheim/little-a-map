@@ -54,7 +54,7 @@ impl<'de> Deserialize<'de> for Banner {
 
         #[derive(Deserialize)]
         struct NameV1203 {
-            text: String,
+            text: Option<String>,
         }
 
         #[derive(Deserialize)]
@@ -71,9 +71,9 @@ impl<'de> Deserialize<'de> for Banner {
         Ok(match Internal::deserialize(deserializer)? {
             Internal::V1204(i) => Self {
                 color: i.color,
-                label: i.name.map(|name| match name {
+                label: i.name.and_then(|name| match name {
                     Name::V1203(n) => n.text,
-                    Name::V1204(n) => n,
+                    Name::V1204(n) => Some(n),
                 }),
                 x: i.pos.x,
                 z: i.pos.z,

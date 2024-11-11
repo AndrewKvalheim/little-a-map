@@ -35,7 +35,7 @@ const MAP_IDS: [(&str, u32); 17] = [
     (">=1.21.2", 17), // Bundle in player inventory
 ];
 
-const BANNERS: [(Option<&str>, &str); 17] = [
+const BANNERS: [(Option<&str>, &str); 19] = [
     (None, "white"),
     (None, "light_gray"),
     (None, "gray"),
@@ -53,6 +53,8 @@ const BANNERS: [(Option<&str>, &str); 17] = [
     (None, "magenta"),
     (None, "pink"),
     (Some("Example Banner"), "white"),
+    (None, "white"),                           // Default ominous banner
+    (Some("Example Ominous Banner"), "white"), // Renamed ominous banner
 ];
 
 struct World {
