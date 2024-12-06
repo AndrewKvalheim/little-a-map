@@ -191,7 +191,7 @@
           zoomControl: false,
         });
 
-        L.tileLayer("./tiles/{z}/{x}/{y}.png", {
+        L.tileLayer("./tiles/{z}/{x}/{y}.png?v={{ cache_version|urlencode }}", {
           className: "pixelated",
           maxNativeZoom: 0,
           maxZoom: 3,
@@ -202,7 +202,7 @@
           zoomOffset: 4,
         }).addTo(map);
 
-        fetch("./banners.json")
+        fetch("./banners.json?v={{ cache_version|urlencode }}")
           .then((r) => r.json())
           .then((collection) => {
             L.geoJSON(collection, {
@@ -324,7 +324,7 @@
         map.on("contextmenu", ({ latlng }) => {
           const tile = tileCoordinate(latlng);
 
-          fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json`)
+          fetch(`./tiles/4/${tile.x}/${tile.y}.meta.json?v={{ cache_version|urlencode }}`)
             .then((response) => {
               const x = Math.floor(latlng.lng), y = Math.floor(latlng.lat);
 

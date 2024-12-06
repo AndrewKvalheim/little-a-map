@@ -150,6 +150,7 @@ pub struct MapScan {
     pub banners: BTreeSet<Banner>,
     pub banners_modified: Option<SystemTime>,
     pub maps_by_tile: HashMap<Tile, BTreeSet<Map>>,
+    pub maps_modified: Option<SystemTime>,
     pub map_ids_by_banner_position: HashMap<(i32, i32), BTreeSet<u32>>,
     pub root_tiles: HashSet<Tile>,
 }
@@ -199,6 +200,7 @@ impl MapScan {
                     let modified = fs::metadata(&path)?.modified()?;
 
                     results.root_tiles.insert(tile.root());
+                    results.maps_modified.replace(modified);
                     if !banners.is_empty() {
                         results.banners_modified.replace(modified);
 
@@ -234,6 +236,11 @@ impl MapScan {
                 if let Some(b) = other.banners_modified {
                     if results.banners_modified.map_or(true, |a| a < b) {
                         results.banners_modified.replace(b);
+                    }
+                }
+                if let Some(b) = other.maps_modified {
+                    if results.maps_modified.map_or(true, |a| a < b) {
+                        results.maps_modified.replace(b);
                     }
                 }
                 results.root_tiles.extend(other.root_tiles);

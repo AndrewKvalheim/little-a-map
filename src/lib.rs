@@ -26,7 +26,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::ops::AddAssign;
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use tile::Tile;
 use utilities::progress_bar;
 
@@ -35,6 +35,7 @@ pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <1.22";
 #[derive(Template)]
 #[template(path = "index.html.j2")]
 struct IndexTemplate<'a> {
+    cache_version: &'a str,
     center: [i32; 2],
     generator: &'a str,
     maps_stacked: usize,
@@ -280,7 +281,17 @@ pub fn render(
         }
     }
 
+    let modified = results
+        .banners_modified
+        .into_iter()
+        .chain(results.maps_modified)
+        .max()
+        .unwrap_or(SystemTime::UNIX_EPOCH);
     let index_template = IndexTemplate {
+        cache_version: &format!(
+            "{:x}",
+            modified.duration_since(SystemTime::UNIX_EPOCH)?.as_secs()
+        ),
         center: [level.spawn_z, level.spawn_x],
         generator: &format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
         maps_stacked: report.maps_stacked,
