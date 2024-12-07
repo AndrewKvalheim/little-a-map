@@ -40,13 +40,13 @@ itertools = "0.13"
 log = "0.4"
 once_cell = "1.4"
 paw = "1.0"
-png = "0.17"
 rayon = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.0", features = ["json"] }
 serde-query = "0.2"
 structopt = { version = "0.3", features = ["paw"] }
+webp = "0.3"
 zstd = "0.13"
 
 [dev-dependencies]

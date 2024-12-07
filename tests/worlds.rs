@@ -181,23 +181,23 @@ fn banners(world: World) {
 }
 
 #[apply(worlds)]
-fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] relative_path: &str) {
+fn swatch(world: World, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path: &str) {
     static EXPECTED_SIZE: Lazy<HashMap<(&str, &str), u64>> = Lazy::new(|| {
         HashMap::from([
-            (("1.20.2", "maps/1.png"), 1194),
-            (("1.20.2", "tiles/4/0/0.png"), 932),
-            (("1.20.4", "maps/1.png"), 1194),
-            (("1.20.4", "tiles/4/0/0.png"), 985),
-            (("1.20.6", "maps/1.png"), 1194),
-            (("1.20.6", "tiles/4/0/0.png"), 985),
-            (("1.21.0", "maps/1.png"), 1194),
-            (("1.21.0", "tiles/4/0/0.png"), 985),
-            (("1.21.1", "maps/1.png"), 1194),
-            (("1.21.1", "tiles/4/0/0.png"), 985),
-            (("1.21.3", "maps/1.png"), 1194),
-            (("1.21.3", "tiles/4/0/0.png"), 932),
-            (("1.21.4", "maps/1.png"), 1194),
-            (("1.21.4", "tiles/4/0/0.png"), 932),
+            (("1.20.2", "maps/1.webp"), 950),
+            (("1.20.2", "tiles/4/0/0.webp"), 762),
+            (("1.20.4", "maps/1.webp"), 950),
+            (("1.20.4", "tiles/4/0/0.webp"), 810),
+            (("1.20.6", "maps/1.webp"), 950),
+            (("1.20.6", "tiles/4/0/0.webp"), 810),
+            (("1.21.0", "maps/1.webp"), 950),
+            (("1.21.0", "tiles/4/0/0.webp"), 810),
+            (("1.21.1", "maps/1.webp"), 950),
+            (("1.21.1", "tiles/4/0/0.webp"), 810),
+            (("1.21.3", "maps/1.webp"), 950),
+            (("1.21.3", "tiles/4/0/0.webp"), 762),
+            (("1.21.4", "maps/1.webp"), 950),
+            (("1.21.4", "tiles/4/0/0.webp"), 762),
         ])
     });
 

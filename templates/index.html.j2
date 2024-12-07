@@ -191,7 +191,7 @@
           zoomControl: false,
         });
 
-        L.tileLayer("./tiles/{z}/{x}/{y}.png?v={{ cache_version|urlencode }}", {
+        L.tileLayer("./tiles/{z}/{x}/{y}.webp?v={{ cache_version|urlencode }}", {
           className: "pixelated",
           maxNativeZoom: 0,
           maxZoom: 3,
@@ -335,7 +335,7 @@
                   const html = `<div class="inspect">
                     <div>${meta.maps.map((id, i) => `<label for="map-${id}"><svg width="16" height="16" viewBox="0 0 16 16"><use href="#filled-map"></svg> #${id}</label>`).join("")}</div>
                     ${meta.maps.map((id, i) => `<input name="inspect" type="radio" id="map-${id}" ${i == 0 ? "checked" : ""}>`).join("")}
-                    ${meta.maps.map((id, i) => `<img class="filled-map pixelated" alt="Map #${id}" width="256" height="256" src="./maps/${id}.png" />`).join("")}
+                    ${meta.maps.map((id, i) => `<img class="filled-map pixelated" alt="Map #${id}" width="256" height="256" src="./maps/${id}.webp?v={{ cache_version|urlencode }}" />`).join("")}
                   </div>${isDebug ? `<p>x = ${x}, z = ${y}</p>`: ""}`;
 
                   map.openPopup(html, [y, x], { maxWidth: 360 });

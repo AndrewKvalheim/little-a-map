@@ -11,7 +11,7 @@ pub fn bench_render(c: &mut Criterion) {
     println!("Found {} maps", map_ids.len());
 
     let mut group = c.benchmark_group("little-a-map");
-    group.sample_size(20);
+    group.sample_size(10);
     group.bench_function("render", |b| {
         b.iter_batched(
             || map_ids.clone(),

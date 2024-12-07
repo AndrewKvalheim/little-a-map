@@ -1,10 +1,8 @@
 use crate::map::{Map, MapData};
-use crate::palette::{PALETTE, PALETTE_LEN};
+use crate::utilities::write_webp;
 use anyhow::Result;
 use serde_json::json;
-use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::BufWriter;
 use std::ops::Add;
 use std::path::Path;
 use std::time::SystemTime;
@@ -94,16 +92,9 @@ impl Tile {
 
         // Image
         if canvas.is_dirty {
-            let png_path = base_path.with_extension("png");
-            let png_file = File::create(png_path)?;
-            let mut encoder = png::Encoder::new(BufWriter::new(&png_file), 128, 128);
-            encoder.set_color(png::ColorType::Indexed);
-            encoder.set_compression(png::Compression::Best);
-            encoder.set_depth(png::BitDepth::Eight);
-            encoder.set_filter(png::FilterType::NoFilter);
-            encoder.set_palette(canvas.palette());
-            encoder.write_header()?.write_image_data(&canvas.pixels)?;
-            png_file.set_modified(maps_modified)?;
+            let mut webp_file = File::create(base_path.with_extension("webp"))?;
+            write_webp(&mut webp_file, &canvas.pixels)?;
+            webp_file.set_modified(maps_modified)?;
         }
 
         Ok(true)
@@ -154,23 +145,6 @@ impl Canvas {
                 *pixel = map_pixel;
             }
         }
-    }
-
-    fn palette(&mut self) -> Vec<u8> {
-        let mut palette = Vec::with_capacity(PALETTE_LEN * 3);
-        let mut map = HashMap::with_capacity(PALETTE_LEN);
-        let mut next = 0;
-
-        for pixel in &mut self.pixels {
-            *pixel = *map.entry(*pixel).or_insert_with(|| {
-                let (i, j) = (*pixel as usize * 3, next);
-                palette.extend(&PALETTE[i..i + 3]);
-                next += 1;
-                j
-            });
-        }
-
-        palette
     }
 }
 

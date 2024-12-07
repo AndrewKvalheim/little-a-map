@@ -200,7 +200,7 @@ pub fn render(
 
     bar.finish_and_clear();
 
-    let maps_pruned = glob(output_path.join("maps/*.png").to_str().unwrap())?
+    let maps_pruned = glob(output_path.join("maps/*.webp").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
             let id: u32 = path.file_stem().unwrap().to_str().unwrap().parse()?;
@@ -215,7 +215,7 @@ pub fn render(
         })
         .sum::<Result<usize>>()?;
 
-    let tiles_pruned = glob(output_path.join("tiles/*/*/*.png").to_str().unwrap())?
+    let tiles_pruned = glob(output_path.join("tiles/*/*/*.webp").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
             let relative = path.strip_prefix(output_path)?;
@@ -229,7 +229,7 @@ pub fn render(
             } else {
                 let base = output_path.join(format!("tiles/{zoom}/{x}/{y}"));
                 debug!("Prune: {}", base.display());
-                fs::remove_file(base.with_extension("png"))?;
+                fs::remove_file(base.with_extension("webp"))?;
                 fs::remove_file(base.with_extension("meta.json"))?;
                 1
             })
