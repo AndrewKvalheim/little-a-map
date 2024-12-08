@@ -3,6 +3,7 @@ use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
 use little_a_map::{level::Level, palette, render, search};
+use once_cell::sync::Lazy;
 use rstest::*;
 use rstest_reuse::{self, *};
 use serde::Deserialize;
@@ -180,9 +181,30 @@ fn banners(world: World) {
 }
 
 #[apply(worlds)]
-fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] path: &str) {
+fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] relative_path: &str) {
+    static EXPECTED_SIZE: Lazy<HashMap<(&str, &str), u64>> = Lazy::new(|| {
+        HashMap::from([
+            (("1.20.2", "maps/1.png"), 1194),
+            (("1.20.2", "tiles/4/0/0.png"), 932),
+            (("1.20.4", "maps/1.png"), 1194),
+            (("1.20.4", "tiles/4/0/0.png"), 985),
+            (("1.20.6", "maps/1.png"), 1194),
+            (("1.20.6", "tiles/4/0/0.png"), 985),
+            (("1.21.0", "maps/1.png"), 1194),
+            (("1.21.0", "tiles/4/0/0.png"), 985),
+            (("1.21.1", "maps/1.png"), 1194),
+            (("1.21.1", "tiles/4/0/0.png"), 985),
+            (("1.21.3", "maps/1.png"), 1194),
+            (("1.21.3", "tiles/4/0/0.png"), 932),
+            (("1.21.4", "maps/1.png"), 1194),
+            (("1.21.4", "tiles/4/0/0.png"), 932),
+        ])
+    });
+
     let output = world.render(&world.search());
-    let view = image::open(output.join(path)).unwrap();
+    let path = output.join(relative_path);
+    let metadata = fs::metadata(&path).unwrap();
+    let view = image::open(&path).unwrap();
 
     assert_eq!(view.dimensions(), (128, 128));
 
@@ -190,6 +212,11 @@ fn swatch(world: World, #[values("maps/1.png", "tiles/4/0/0.png")] path: &str) {
         let pixel = view.get_pixel(i, 0);
         assert_eq!(pixel.to_rgb(), rgb.into());
     }
+
+    assert_eq!(
+        metadata.len(),
+        EXPECTED_SIZE[&(world.level.version.to_string().as_str(), relative_path)]
+    );
 }
 
 #[apply(worlds)]
