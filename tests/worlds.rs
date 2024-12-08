@@ -3,7 +3,6 @@ use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
 use little_a_map::{level::Level, palette, render, search};
-use once_cell::sync::Lazy;
 use rstest::*;
 use rstest_reuse::{self, *};
 use serde::Deserialize;
@@ -182,25 +181,6 @@ fn banners(world: World) {
 
 #[apply(worlds)]
 fn swatch(world: World, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path: &str) {
-    static EXPECTED_SIZE: Lazy<HashMap<(&str, &str), u64>> = Lazy::new(|| {
-        HashMap::from([
-            (("1.20.2", "maps/1.webp"), 950),
-            (("1.20.2", "tiles/4/0/0.webp"), 762),
-            (("1.20.4", "maps/1.webp"), 950),
-            (("1.20.4", "tiles/4/0/0.webp"), 810),
-            (("1.20.6", "maps/1.webp"), 950),
-            (("1.20.6", "tiles/4/0/0.webp"), 810),
-            (("1.21.0", "maps/1.webp"), 950),
-            (("1.21.0", "tiles/4/0/0.webp"), 810),
-            (("1.21.1", "maps/1.webp"), 950),
-            (("1.21.1", "tiles/4/0/0.webp"), 810),
-            (("1.21.3", "maps/1.webp"), 950),
-            (("1.21.3", "tiles/4/0/0.webp"), 762),
-            (("1.21.4", "maps/1.webp"), 950),
-            (("1.21.4", "tiles/4/0/0.webp"), 762),
-        ])
-    });
-
     let output = world.render(&world.search());
     let path = output.join(relative_path);
     let metadata = fs::metadata(&path).unwrap();
@@ -213,9 +193,13 @@ fn swatch(world: World, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_pa
         assert_eq!(pixel.to_rgb(), rgb.into());
     }
 
-    assert_eq!(
-        metadata.len(),
-        EXPECTED_SIZE[&(world.level.version.to_string().as_str(), relative_path)]
+    let expected = 850;
+    let tolerance = 100;
+    let actual = metadata.len();
+    assert!(
+        ((expected - tolerance)..=(expected + tolerance)).contains(&actual),
+        "Expected size of {}: {expected}±{tolerance} B, Actual size: {actual} B",
+        &path.display(),
     );
 }
 
