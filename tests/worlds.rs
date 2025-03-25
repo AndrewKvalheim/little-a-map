@@ -36,23 +36,23 @@ const MAP_IDS: [(&str, u32); 17] = [
 ];
 
 const BANNERS: [(Option<&str>, &str); 19] = [
-    (None, "white"),
-    (None, "light_gray"),
-    (None, "gray"),
-    (None, "black"),
-    (None, "brown"),
-    (None, "red"),
-    (None, "orange"),
-    (None, "yellow"),
-    (None, "lime"),
-    (None, "green"),
-    (None, "cyan"),
-    (None, "light_blue"),
-    (None, "blue"),
-    (None, "purple"),
-    (None, "magenta"),
-    (None, "pink"),
-    (Some("Example Banner"), "white"),
+    (None, "white"),                           // Default white banner
+    (None, "light_gray"),                      // Default light gray banner
+    (None, "gray"),                            // Default gray banner
+    (None, "black"),                           // Default black banner
+    (None, "brown"),                           // Default brown banner
+    (None, "red"),                             // Default red banner
+    (None, "orange"),                          // Default orange banner
+    (None, "yellow"),                          // Default yellow banner
+    (None, "lime"),                            // Default lime banner
+    (None, "green"),                           // Default green banner
+    (None, "cyan"),                            // Default cyan banner
+    (None, "light_blue"),                      // Default light blue banner
+    (None, "blue"),                            // Default blue banner
+    (None, "purple"),                          // Default purple banner
+    (None, "magenta"),                         // Default magenta banner
+    (None, "pink"),                            // Default pink banner
+    (Some("Example Banner"), "white"),         // Renamed white banner
     (None, "white"),                           // Default ominous banner
     (Some("Example Ominous Banner"), "white"), // Renamed ominous banner
 ];
