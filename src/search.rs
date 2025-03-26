@@ -276,10 +276,17 @@ struct MapIdsOfPlayer(HashSet<u32>);
 impl<'de> Deserialize<'de> for MapIdsOfPlayer {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
         struct Internal {
+            #[serde(rename = "EnderItems")]
             ender_items: Vec<MapIdsOfItem>,
+            equipment: Option<Equipment>,
+            #[serde(rename = "Inventory")]
             inventory: Vec<MapIdsOfItem>,
+        }
+
+        #[derive(Deserialize)]
+        struct Equipment {
+            offhand: Option<MapIdsOfItem>,
         }
 
         let internal = Internal::deserialize(deserializer)?;
@@ -287,6 +294,7 @@ impl<'de> Deserialize<'de> for MapIdsOfPlayer {
             internal
                 .ender_items
                 .into_iter()
+                .chain(internal.equipment.into_iter().filter_map(|e| e.offhand))
                 .chain(internal.inventory)
                 .flat_map(|i| i.0)
                 .collect(),

@@ -143,24 +143,27 @@ impl MapScan {
         }
         impl<'de> Deserialize<'de> for Meta {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                #[derive(serde_query::Deserialize)]
+                #[derive(Deserialize)]
                 struct Internal {
-                    #[query(".data.banners")]
-                    banners: Vec<Banner>,
-                    #[query(".data.dimension")]
+                    data: Data,
+                }
+
+                #[derive(Deserialize)]
+                struct Data {
+                    banners: Option<Vec<Banner>>,
                     dimension: Dimension,
-                    #[query(".data.scale")]
-                    scale: u8,
-                    #[query(".data.xCenter")]
+                    scale: Option<u8>,
+                    #[serde(rename = "xCenter")]
                     x: i32,
-                    #[query(".data.zCenter")]
+                    #[serde(rename = "zCenter")]
                     z: i32,
                 }
-                let internal = Internal::deserialize(deserializer)?;
-                if internal.dimension == Dimension::Overworld {
+
+                let data = Internal::deserialize(deserializer)?.data;
+                if data.dimension == Dimension::Overworld {
                     Ok(Self::Normal {
-                        banners: internal.banners,
-                        tile: Tile::from_position(internal.scale, internal.x, internal.z),
+                        banners: data.banners.unwrap_or_default(),
+                        tile: Tile::from_position(data.scale.unwrap_or_default(), data.x, data.z),
                     })
                 } else {
                     Ok(Self::Other)
