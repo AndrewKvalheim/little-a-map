@@ -23,6 +23,7 @@ impl<'de> Deserialize<'de> for Banner {
         enum Internal {
             V1204(InternalV1204),
             V1205(InternalV1205),
+            V1215(InternalV1215),
         }
 
         #[serde_as]
@@ -41,6 +42,15 @@ impl<'de> Deserialize<'de> for Banner {
             #[serde(default = "default_color")]
             color: String,
             #[serde_as(as = "Option<JsonString<_>>")]
+            name: Option<String>,
+            pos: IntArray,
+        }
+
+        #[serde_as]
+        #[derive(Deserialize)]
+        struct InternalV1215 {
+            #[serde(default = "default_color")]
+            color: String,
             name: Option<String>,
             pos: IntArray,
         }
@@ -79,6 +89,12 @@ impl<'de> Deserialize<'de> for Banner {
                 z: i.pos.z,
             },
             Internal::V1205(i) => Self {
+                color: i.color,
+                label: i.name,
+                x: i.pos[0],
+                z: i.pos[2],
+            },
+            Internal::V1215(i) => Self {
                 color: i.color,
                 label: i.name,
                 x: i.pos[0],
