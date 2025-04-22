@@ -1,4 +1,4 @@
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 const BACKGROUND: [u8; 3] = [211, 188, 148];
 pub const BASE: [[u8; 3]; 62] = [
@@ -69,7 +69,7 @@ const FACTORS: [u8; 4] = [180, 220, 255, 135];
 
 pub const PALETTE_LEN: usize = BASE.len() * FACTORS.len();
 
-pub static PALETTE: Lazy<[u8; PALETTE_LEN * 3]> = Lazy::new(|| {
+pub static PALETTE: LazyLock<[u8; PALETTE_LEN * 3]> = LazyLock::new(|| {
     let mut palette: [u8; PALETTE_LEN * 3] = BASE
         .iter()
         .flat_map(|rgb| {
