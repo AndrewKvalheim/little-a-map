@@ -1,4 +1,4 @@
-use forgiving_semver::VersionReq;
+use semver::VersionReq;
 use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};

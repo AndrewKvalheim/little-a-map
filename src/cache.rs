@@ -88,12 +88,12 @@ fn validate_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String
 #[cfg(test)]
 mod test {
     use super::*;
-    use forgiving_semver::Version;
+    use semver::Version;
     use serde_json::json;
 
     fn next_version(text: impl AsRef<str>) -> String {
         let mut version = Version::parse(text.as_ref()).unwrap();
-        version.increment_patch();
+        version.patch += 1;
         version.to_string()
     }
 
