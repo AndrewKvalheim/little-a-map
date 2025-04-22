@@ -68,7 +68,7 @@ impl Tile {
         if !force
             && fs::metadata(&meta_path)
                 .and_then(|m| m.modified())
-                .map_or(false, |meta_modified| meta_modified >= maps_modified)
+                .is_ok_and(|meta_modified| meta_modified >= maps_modified)
         {
             return Ok(false);
         }

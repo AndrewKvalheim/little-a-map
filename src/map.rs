@@ -79,7 +79,7 @@ impl Map {
         if !force
             && fs::metadata(&webp_path)
                 .and_then(|m| m.modified())
-                .map_or(false, |meta_modified| meta_modified >= self.modified)
+                .is_ok_and(|meta_modified| meta_modified >= self.modified)
         {
             return Ok(false);
         }

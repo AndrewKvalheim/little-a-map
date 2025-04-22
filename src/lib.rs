@@ -254,7 +254,7 @@ pub fn render(
                     .for_each(|l| {
                         u.entry(l).and_modify(|v| *v = false).or_insert(true);
                     });
-                move |b: &Banner| b.label.as_deref().map_or(false, |l| *u.get(l).unwrap())
+                move |b: &Banner| b.label.as_deref().is_some_and(|l| *u.get(l).unwrap())
             };
 
             let banners_file = File::create(&banners_path)?;
