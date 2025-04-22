@@ -93,17 +93,17 @@ mod test {
 
     fn next_version(text: impl AsRef<str>) -> String {
         let mut version = Version::parse(text.as_ref()).unwrap();
-        match version {
-            Version { patch, .. } if patch > 0 => version.patch -= 1,
-            Version { minor, .. } if minor > 0 => version.minor -= 1,
-            _ => version.major -= 1,
-        }
+        version.increment_patch();
         version.to_string()
     }
 
     fn previous_version(text: impl AsRef<str>) -> String {
         let mut version = Version::parse(text.as_ref()).unwrap();
-        version.increment_patch();
+        match version {
+            Version { patch, .. } if patch > 0 => version.patch -= 1,
+            Version { minor, .. } if minor > 0 => version.minor -= 1,
+            _ => version.major -= 1,
+        }
         version.to_string()
     }
 
