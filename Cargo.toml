@@ -9,7 +9,7 @@ authors = ["Andrew Kvalheim <Andrew@Kvalhe.im>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.75.0" # rust-lang/rust#98245
+rust-version = "1.81.0"
 
 [lints.clippy]
 nursery = { level = "warn", priority = -1 }
@@ -26,16 +26,16 @@ bench = false
 
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
-askama = { version = "0.12", features = ["percent-encoding", "serde-json"] }
+askama = { version = "0.13", features = ["serde_json"] }
 bincode = "1.3"
 derivative = "2.1"
-env_logger = "0.11.3"
+env_logger = "0.11"
 fastanvil = "0.31.0"
 fastnbt = "2.5.0"
 flate2 = { version = "1.0", features = ["zlib-ng"], default-features = false }
 glob = "0.3"
 indicatif = { version = "0.17", features = ["rayon"] }
-itertools = "0.13"
+itertools = "0.14"
 log = "0.4"
 once_cell = "1.4"
 paw = "1.0"
@@ -52,7 +52,7 @@ zstd = "0.13"
 [dev-dependencies]
 criterion = "0.5"
 image = "0.25"
-rstest = "0.23"
+rstest = "0.25"
 rstest_reuse = "0.7"
 tempfile = "3.3"
 
