@@ -136,6 +136,7 @@ fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
 #[case::world_1_21_4("1.21.4")]
 #[case::world_1_21_5("1.21.5")]
 #[case::world_1_21_6("1.21.6")]
+#[case::world_1_21_7("1.21.7")]
 fn worlds(#[case] world: World) {}
 
 #[apply(worlds)]
