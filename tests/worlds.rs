@@ -14,7 +14,7 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
-const MAP_IDS: [(&str, u32); 18] = [
+const MAP_IDS: [(&str, u32); 21] = [
     (">=1.0", 0), // Player offhand
     (">=1.0", 1), // Item frame
     // 2 Enlarged to #11
@@ -34,6 +34,9 @@ const MAP_IDS: [(&str, u32); 18] = [
     (">=1.21.2", 16), // Bundle in bundle in chest
     (">=1.21.2", 17), // Bundle in player inventory
     (">=1.21.5", 18), // Player inventory
+    (">=1.21.9", 19), // Copper chest
+    (">=1.21.9", 20), // Shelf
+    (">=1.21.9", 21), // Bundle on shelf
 ];
 
 const BANNERS: [(Option<&str>, &str); 19] = [
@@ -138,6 +141,7 @@ fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
 #[case::world_1_21_6("1.21.6")]
 #[case::world_1_21_7("1.21.7")]
 #[case::world_1_21_8("1.21.8")]
+#[case::world_1_21_9("1.21.9")]
 fn worlds(#[case] world: World) {}
 
 #[apply(worlds)]
