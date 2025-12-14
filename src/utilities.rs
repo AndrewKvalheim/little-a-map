@@ -46,7 +46,7 @@ pub fn write_webp(w: &mut impl Write, indexed: &[u8; 128 * 128]) -> Result<()> {
     let encoder = webp::Encoder::from_rgb(&rgb, 128, 128);
     let encoded = encoder
         .encode_simple(true, 100.0)
-        .map_err(|e| anyhow!("WebP encoding error: {:?}", e))?;
+        .map_err(|e| anyhow!("WebP encoding error: {e:?}"))?;
     w.write_all(&encoded)?;
 
     Ok(())
