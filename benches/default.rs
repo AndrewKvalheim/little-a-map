@@ -1,6 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use little_a_map::{level::Level, render, search};
 use std::env;
+use std::hint::black_box;
 use std::path::PathBuf;
 
 pub fn bench_render(c: &mut Criterion) {
