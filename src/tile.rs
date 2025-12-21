@@ -1,6 +1,6 @@
 use crate::map::{Map, MapData};
-use crate::utilities::write_webp;
-use anyhow::{Context, Result};
+use crate::utilities::{set_modified, write_webp};
+use anyhow::Result;
 use fs_err::{self as fs, File};
 use serde_json::json;
 use std::ops::Add;
@@ -88,23 +88,13 @@ impl Tile {
         fs::create_dir_all(&dir_path)?;
         let meta_file = File::create(&meta_path)?;
         serde_json::to_writer(&meta_file, &json!({ "maps": ids }))?;
-        // meta_file.set_modified(maps_modified)?;
-        let path = meta_file.path().to_path_buf();
-        meta_file
-            .into_file()
-            .set_modified(maps_modified)
-            .context(format!("Failed to set modified on {}", path.display()))?;
+        set_modified(&meta_file, maps_modified)?;
 
         // Image
         if canvas.is_dirty {
             let mut webp_file = File::create(base_path.with_extension("webp"))?;
             write_webp(&mut webp_file, &canvas.pixels)?;
-            // webp_file.set_modified(maps_modified)?;
-            let path = webp_file.path().to_path_buf();
-            webp_file
-                .into_file()
-                .set_modified(maps_modified)
-                .context(format!("Failed to set modified on {}", path.display()))?;
+            set_modified(&webp_file, maps_modified)?;
         }
 
         Ok(true)

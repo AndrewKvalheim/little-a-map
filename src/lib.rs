@@ -9,7 +9,7 @@ mod search;
 mod tile;
 mod utilities;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use askama::Template;
 use banner::Banner;
 use cache::Cache;
@@ -23,13 +23,12 @@ use rayon::prelude::*;
 use search::{search_entities, search_level, search_players, Bounds};
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap, HashSet};
-//use std::fs::{self, File};
 use std::io::Write;
 use std::ops::AddAssign;
 use std::path::Path;
 use std::time::{Instant, SystemTime};
 use tile::Tile;
-use utilities::progress_bar;
+use utilities::{progress_bar, set_modified};
 
 pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <1.22";
 
@@ -278,12 +277,7 @@ pub fn render(
                     })).collect::<Vec<_>>()
                 }),
             )?;
-            //banners_file.set_modified(modified)?;
-            let path = banners_file.path().to_path_buf();
-            banners_file
-                .into_file()
-                .set_modified(modified)
-                .context(format!("Failed to set modified on {}", path.display()))?;
+            set_modified(&banners_file, modified)?;
         }
     }
 
