@@ -7,6 +7,7 @@ use crate::utilities::{read_gz, write_webp};
 use anyhow::{Context, Result};
 use derivative::Derivative;
 use fastnbt::from_bytes;
+use fs_err::{self as fs, File};
 use itertools::Itertools;
 use log::{debug, log_enabled, Level::Debug};
 use rayon::prelude::*;
@@ -14,7 +15,6 @@ use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, File};
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -87,7 +87,12 @@ impl Map {
         fs::create_dir_all(&dir_path)?;
         let mut webp_file = File::create(webp_path)?;
         write_webp(&mut webp_file, &data.0)?;
-        webp_file.set_modified(self.modified)?;
+        // webp_file.set_modified(self.modified)?;
+        let path = webp_file.path().to_path_buf();
+        webp_file
+            .into_file()
+            .set_modified(self.modified)
+            .context(format!("Failed to set modified on {}", path.display()))?;
 
         Ok(true)
     }

@@ -47,6 +47,7 @@ serde-query = "0.2"
 structopt = { version = "0.3", features = ["paw"] }
 webp = "0.3"
 zstd = "0.13"
+fs-err = "3.2.1"
 
 [dev-dependencies]
 criterion = "0.8"

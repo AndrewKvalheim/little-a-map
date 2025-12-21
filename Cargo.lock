@@ -856,6 +856,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "fs-err"
+version = "3.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824f08d01d0f496b3eca4f001a13cf17690a6ee930043d20817f547455fd98f8"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1274,6 +1283,7 @@ dependencies = [
  "fastanvil",
  "fastnbt",
  "flate2",
+ "fs-err",
  "glob",
  "image 0.25.9",
  "indicatif",
