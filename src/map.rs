@@ -3,7 +3,7 @@
 
 use crate::banner::Banner;
 use crate::tile::Tile;
-use crate::utilities::{read_gz, set_modified, write_webp};
+use crate::utilities::{read_gz, write_webp};
 use anyhow::{Context, Result};
 use derivative::Derivative;
 use fastnbt::from_bytes;
@@ -87,7 +87,7 @@ impl Map {
         fs::create_dir_all(&dir_path)?;
         let mut webp_file = File::create(webp_path)?;
         write_webp(&mut webp_file, &data.0)?;
-        set_modified(&webp_file, self.modified)?;
+        webp_file.set_modified(self.modified)?;
 
         Ok(true)
     }

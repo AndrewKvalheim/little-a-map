@@ -1,5 +1,5 @@
 use crate::palette::PALETTE;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
 use fs_err::File;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -7,7 +7,6 @@ use std::array;
 use std::borrow::Cow;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::time::SystemTime;
 
 pub fn progress_bar(
     quiet: bool,
@@ -51,13 +50,4 @@ pub fn write_webp(w: &mut impl Write, indexed: &[u8; 128 * 128]) -> Result<()> {
     w.write_all(&encoded)?;
 
     Ok(())
-}
-
-/// Wraps [`fs_err::File`] because it does not yet have a [`std::fs::File::set_modified`] method.
-pub fn set_modified(file: &File, modified: SystemTime) -> Result<()> {
-    let path = file.path();
-    let display = path.display().to_string();
-    file.file()
-        .set_modified(modified)
-        .context(format!("failed to set modified time for file: `{display}`"))
 }

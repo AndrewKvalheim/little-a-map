@@ -28,7 +28,7 @@ use std::ops::AddAssign;
 use std::path::Path;
 use std::time::{Instant, SystemTime};
 use tile::Tile;
-use utilities::{progress_bar, set_modified};
+use utilities::progress_bar;
 
 pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <1.22";
 
@@ -277,7 +277,7 @@ pub fn render(
                     })).collect::<Vec<_>>()
                 }),
             )?;
-            set_modified(&banners_file, modified)?;
+            banners_file.set_modified(modified)?;
         }
     }
 
