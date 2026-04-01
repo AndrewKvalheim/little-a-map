@@ -143,14 +143,19 @@ fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
 #[case::world_1_21_11("1.21.11")]
 #[case::world_26_1_0("26.1.0")]
 #[case::world_26_1_1("26.1.1")]
-fn cases(#[case] case: Case) {}
+fn all(#[case] case: Case) {}
 
-#[apply(cases)]
+#[template]
+#[rstest]
+#[case::world_26_1_1("26.1.1")]
+fn latest(#[case] case: Case) {}
+
+#[apply(all)]
 fn spawn(case: Case) {
     assert_eq!((case.world.level.spawn_x, case.world.level.spawn_z), (0, 0));
 }
 
-#[apply(cases)]
+#[apply(all)]
 fn map_ids(case: Case) {
     assert_equal(
         case.search().iter().sorted(),
@@ -165,7 +170,7 @@ fn map_ids(case: Case) {
     );
 }
 
-#[apply(cases)]
+#[apply(all)]
 fn banners(case: Case) {
     #[derive(Deserialize)]
     struct GeoJson {
@@ -193,7 +198,7 @@ fn banners(case: Case) {
     assert_equal(actual, expected);
 }
 
-#[apply(cases)]
+#[apply(all)]
 fn swatch(case: Case, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path: &str) {
     let output = case.render(&case.search());
     let path = output.join(relative_path);
@@ -217,7 +222,7 @@ fn swatch(case: Case, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path
     );
 }
 
-#[apply(cases)]
+#[apply(latest)]
 fn rerun(case: Case) {
     let ids_1 = case.search();
     let modifications_1 = observe_modifications(case.render(&ids_1));
