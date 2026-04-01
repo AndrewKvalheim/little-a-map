@@ -8,6 +8,7 @@ use std::convert::TryFrom;
 use std::path::Path;
 
 pub struct Level {
+    pub data_version: u32,
     pub spawn_x: i32,
     pub spawn_z: i32,
     pub version: Version,
@@ -31,6 +32,8 @@ impl<'de> Deserialize<'de> for Level {
 
         #[derive(serde_query::Deserialize)]
         struct V1218 {
+            #[query(".Data.DataVersion")]
+            data_version: u32,
             #[query(".Data.SpawnX")]
             spawn_x: i32,
             #[query(".Data.SpawnZ")]
@@ -41,6 +44,8 @@ impl<'de> Deserialize<'de> for Level {
 
         #[derive(serde_query::Deserialize)]
         struct V1219 {
+            #[query(".Data.DataVersion")]
+            data_version: u32,
             #[query(".Data.spawn.pos")]
             pos: IntArray,
             #[query(".Data.Version.Name")]
@@ -49,11 +54,13 @@ impl<'de> Deserialize<'de> for Level {
 
         Ok(match Internal::deserialize(deserializer)? {
             Internal::V1218(i) => Self {
+                data_version: i.data_version,
                 spawn_x: i.spawn_x,
                 spawn_z: i.spawn_z,
                 version: to_version(i.version).map_err(de::Error::custom)?,
             },
             Internal::V1219(i) => Self {
+                data_version: i.data_version,
                 spawn_x: i.pos[0],
                 spawn_z: i.pos[2],
                 version: to_version(i.version).map_err(de::Error::custom)?,

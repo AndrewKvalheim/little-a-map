@@ -1,0 +1,13 @@
+# Temporary files
+*_new
+*_old
+*.lock
+
+# Unused components
+advancements
+datapacks
+icon.png
+poi
+raids*.dat
+stats
+villages*.dat

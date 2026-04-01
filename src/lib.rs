@@ -31,7 +31,7 @@ use tile::Tile;
 use utilities::progress_bar;
 use world::World;
 
-pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <1.22";
+pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <26.2";
 
 #[derive(Template)]
 #[template(path = "index.html.j2")]
