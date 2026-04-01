@@ -8,7 +8,7 @@ use semver::VersionReq;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -62,19 +62,19 @@ const BANNERS: [(Option<&str>, &str); 19] = [
 ];
 
 struct Case {
-    output: TempDir,
+    tmp: TempDir,
     world: World,
 }
 
 impl Case {
     fn render(&self, ids: &HashSet<u32>) -> &Path {
-        let output = self.output.path();
+        let output = self.tmp.path();
         render(&self.world, output, true, true, ids).unwrap();
         output
     }
 
     fn search(&self) -> HashSet<u32> {
-        search(&self.world, self.output.path(), true, true, None).unwrap()
+        search(&self.world, self.tmp.path(), true, true, None).unwrap()
     }
 }
 
@@ -82,11 +82,10 @@ impl FromStr for Case {
     type Err = ();
 
     fn from_str(version: &str) -> Result<Self, Self::Err> {
-        let input =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("fixtures/world-{version}"));
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("fixtures/world-{version}"));
         let case = Self {
-            world: input.try_into().unwrap(),
-            output: tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap(),
+            tmp: tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap(),
+            world: path.try_into().unwrap(),
         };
 
         assert_eq!(case.world.level.version.to_string(), version);

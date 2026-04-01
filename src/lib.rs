@@ -17,6 +17,7 @@ use cache::Cache;
 use fs_err::{self as fs, File};
 use glob::glob;
 use indicatif::ProgressBar;
+use itertools::Itertools;
 use log::debug;
 use map::{Map, MapData, MapScan};
 use rayon::prelude::*;
@@ -107,20 +108,19 @@ impl Quadrant<'_> {
             }
         }
 
-        report.maps.extend(
-            self.layers
-                .pop()
-                .unwrap()
-                .iter_mut()
-                .flatten()
-                .map(|(map, data)| {
-                    if map.render(self.output_path, data, self.force).unwrap(/* FIXME: Handle result */) {
-                        report.maps_rendered += 1;
-                    }
+        self.layers
+            .pop()
+            .unwrap()
+            .iter_mut()
+            .flatten()
+            .map(|(map, data)| -> Result<u32> {
+                if map.render(self.output_path, data, self.force)? {
+                    report.maps_rendered += 1;
+                }
 
-                    map.id
-                }),
-        );
+                Ok(map.id)
+            })
+            .process_results(|i| report.maps.extend(i))?;
 
         Ok(report)
     }
