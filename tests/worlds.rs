@@ -1,7 +1,7 @@
 use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
-use little_a_map::{level::Level, palette, render, search};
+use little_a_map::{palette, render, search, world::World};
 use rstest::*;
 use rstest_reuse::{self, *};
 use semver::VersionReq;
@@ -61,39 +61,37 @@ const BANNERS: [(Option<&str>, &str); 19] = [
     (Some("Example Ominous Banner"), "white"), // Renamed ominous banner
 ];
 
-struct World {
-    input: PathBuf,
+struct Case {
     output: TempDir,
-    level: Level,
+    world: World,
 }
 
-impl World {
+impl Case {
     fn render(&self, ids: &HashSet<u32>) -> &Path {
         let output = self.output.path();
-        render(&self.input, output, true, true, &self.level, ids).unwrap();
+        render(&self.world, output, true, true, ids).unwrap();
         output
     }
 
     fn search(&self) -> HashSet<u32> {
-        search(&self.input, self.output.path(), true, true, None).unwrap()
+        search(&self.world, self.output.path(), true, true, None).unwrap()
     }
 }
 
-impl FromStr for World {
+impl FromStr for Case {
     type Err = ();
 
     fn from_str(version: &str) -> Result<Self, Self::Err> {
         let input =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("fixtures/world-{version}"));
-        let world = Self {
-            level: Level::from_world_path(&input).unwrap(),
+        let case = Self {
+            world: input.try_into().unwrap(),
             output: tempfile::tempdir_in(env!("TEST_OUTPUT_PATH")).unwrap(),
-            input,
         };
 
-        assert_eq!(world.level.version.to_string(), version);
+        assert_eq!(case.world.level.version.to_string(), version);
 
-        Ok(world)
+        Ok(case)
     }
 }
 
@@ -144,26 +142,30 @@ fn observe_modifications(base: &Path) -> HashMap<String, SystemTime> {
 #[case::world_1_21_9("1.21.9")]
 #[case::world_1_21_10("1.21.10")]
 #[case::world_1_21_11("1.21.11")]
-fn worlds(#[case] world: World) {}
+fn cases(#[case] case: Case) {}
 
-#[apply(worlds)]
-fn spawn(world: World) {
-    assert_eq!((world.level.spawn_x, world.level.spawn_z), (0, 0));
+#[apply(cases)]
+fn spawn(case: Case) {
+    assert_eq!((case.world.level.spawn_x, case.world.level.spawn_z), (0, 0));
 }
 
-#[apply(worlds)]
-fn map_ids(world: World) {
+#[apply(cases)]
+fn map_ids(case: Case) {
     assert_equal(
-        world.search().iter().sorted(),
+        case.search().iter().sorted(),
         MAP_IDS
             .iter()
-            .filter(|(v, _)| VersionReq::parse(v).unwrap().matches(&world.level.version))
+            .filter(|(v, _)| {
+                VersionReq::parse(v)
+                    .unwrap()
+                    .matches(&case.world.level.version)
+            })
             .map(|(_, id)| id),
     );
 }
 
-#[apply(worlds)]
-fn banners(world: World) {
+#[apply(cases)]
+fn banners(case: Case) {
     #[derive(Deserialize)]
     struct GeoJson {
         features: Vec<Feature>,
@@ -181,7 +183,7 @@ fn banners(world: World) {
         pub color: String,
     }
 
-    let output = world.render(&world.search());
+    let output = case.render(&case.search());
     let json = File::open(output.join("banners.json")).unwrap();
     let geo: GeoJson = serde_json::from_reader(json).unwrap();
 
@@ -190,9 +192,9 @@ fn banners(world: World) {
     assert_equal(actual, expected);
 }
 
-#[apply(worlds)]
-fn swatch(world: World, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path: &str) {
-    let output = world.render(&world.search());
+#[apply(cases)]
+fn swatch(case: Case, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_path: &str) {
+    let output = case.render(&case.search());
     let path = output.join(relative_path);
     let metadata = fs::metadata(&path).unwrap();
     let view = image::open(&path).unwrap();
@@ -214,15 +216,15 @@ fn swatch(world: World, #[values("maps/1.webp", "tiles/4/0/0.webp")] relative_pa
     );
 }
 
-#[apply(worlds)]
-fn rerun(world: World) {
-    let ids_1 = world.search();
-    let modifications_1 = observe_modifications(world.render(&ids_1));
+#[apply(cases)]
+fn rerun(case: Case) {
+    let ids_1 = case.search();
+    let modifications_1 = observe_modifications(case.render(&ids_1));
 
     thread::sleep(Duration::from_millis(100));
 
-    let ids_2 = world.search();
-    let modifications_2 = observe_modifications(world.render(&ids_2));
+    let ids_2 = case.search();
+    let modifications_2 = observe_modifications(case.render(&ids_2));
 
     assert_eq!(ids_2, ids_1);
     assert_modifications(

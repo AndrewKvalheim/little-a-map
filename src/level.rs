@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use fastnbt::{from_bytes, IntArray};
 use semver::{Version, VersionReq};
 use serde::{de, Deserialize, Deserializer};
+use std::convert::TryFrom;
 use std::path::Path;
 
 pub struct Level {
@@ -61,10 +62,11 @@ impl<'de> Deserialize<'de> for Level {
     }
 }
 
-impl Level {
-    pub fn from_world_path(world_path: &Path) -> Result<Self> {
-        let path = world_path.join("level.dat");
-        let level: Self = from_bytes(&read_gz(&path)?)
+impl TryFrom<&Path> for Level {
+    type Error = anyhow::Error;
+
+    fn try_from(path: &Path) -> Result<Self> {
+        let level: Self = from_bytes(&read_gz(path)?)
             .with_context(|| format!("Failed to deserialize {}", path.display()))?;
 
         assert!(

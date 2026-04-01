@@ -2,10 +2,11 @@
 
 use crate::cache::{Cache, IdsBy};
 use crate::utilities::{progress_bar, read_gz};
+use crate::world::World;
 use anyhow::{Context, Result};
 use fastnbt::from_bytes;
 use fs_err::{self as fs, File};
-use glob::glob;
+use glob::Paths;
 use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use log::{debug, log_enabled, Level::Debug};
@@ -13,7 +14,6 @@ use rayon::prelude::*;
 use serde::{de::DeserializeOwned, de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 use std::iter;
-use std::path::Path;
 use std::string::ToString;
 
 pub type Bounds = ((i32, i32), (i32, i32));
@@ -303,13 +303,12 @@ impl<'de> Deserialize<'de> for MapIdsOfPlayer {
 }
 
 fn search_regions<T: ContainsMapIds + DeserializeOwned>(
-    world_path: &Path,
     quiet: bool,
     bounds: Option<&Bounds>,
     cache: &Cache,
-    pattern: &str,
+    paths: Paths,
 ) -> Result<(usize, IdsBy<(i32, i32)>)> {
-    let regions = glob(world_path.join(pattern).to_str().unwrap())?
+    let regions = paths
         .map(|entry| {
             let path = entry?;
             let base = path.file_stem().unwrap().to_str().unwrap();
@@ -373,9 +372,8 @@ fn search_regions<T: ContainsMapIds + DeserializeOwned>(
     Ok((length, map_ids_by_region))
 }
 
-pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Result<usize> {
-    let pattern = world_path.join("playerdata/????????-????-????-????-????????????.dat");
-    let mut paths = glob(pattern.to_str().unwrap())?.collect::<Result<Vec<_>, _>>()?;
+pub fn search_players(world: &World, quiet: bool, cache: &mut Cache) -> Result<usize> {
+    let mut paths = world.player_paths()?.collect::<Result<Vec<_>, _>>()?;
     paths.sort();
 
     let players = paths
@@ -410,28 +408,26 @@ pub fn search_players(world_path: &Path, quiet: bool, cache: &mut Cache) -> Resu
 }
 
 pub fn search_entities(
-    world_path: &Path,
+    world: &World,
     quiet: bool,
     bounds: Option<&Bounds>,
     cache: &mut Cache,
 ) -> Result<usize> {
-    let pattern = "entities/r.*.mca";
     let (length, ids) =
-        search_regions::<MapIdsOfEntitiesChunk>(world_path, quiet, bounds, cache, pattern)?;
+        search_regions::<MapIdsOfEntitiesChunk>(quiet, bounds, cache, world.entity_paths()?)?;
 
     cache.map_ids_by_entities_region.extend(ids);
     Ok(length)
 }
 
 pub fn search_level(
-    world_path: &Path,
+    world: &World,
     quiet: bool,
     bounds: Option<&Bounds>,
     cache: &mut Cache,
 ) -> Result<usize> {
-    let pattern = "region/r.*.mca";
     let (length, ids) =
-        search_regions::<MapIdsOfLevelChunk>(world_path, quiet, bounds, cache, pattern)?;
+        search_regions::<MapIdsOfLevelChunk>(quiet, bounds, cache, world.region_paths()?)?;
 
     cache.map_ids_by_block_region.extend(ids);
     Ok(length)

@@ -4,6 +4,7 @@
 use crate::banner::Banner;
 use crate::tile::Tile;
 use crate::utilities::{read_gz, write_webp};
+use crate::world::World;
 use anyhow::{Context, Result};
 use derivative::Derivative;
 use fastnbt::from_bytes;
@@ -117,11 +118,11 @@ impl<'de> Deserialize<'de> for MapData {
         })?))
     }
 }
-impl MapData {
-    pub fn from_world_path(world_path: &Path, id: u32) -> Result<Self> {
-        let path = world_path.join(format!("data/map_{id}.dat"));
+impl TryFrom<&Path> for MapData {
+    type Error = anyhow::Error;
 
-        from_bytes(&read_gz(&path)?)
+    fn try_from(path: &Path) -> Result<Self> {
+        from_bytes(&read_gz(path)?)
             .with_context(|| format!("Failed to deserialize {}", path.display()))
     }
 }
@@ -136,7 +137,7 @@ pub struct MapScan {
     pub root_tiles: HashSet<Tile>,
 }
 impl MapScan {
-    pub fn run(world_path: &Path, ids: &HashSet<u32>) -> Result<Self> {
+    pub fn run(world: &World, ids: &HashSet<u32>) -> Result<Self> {
         enum Meta {
             Normal { banners: Vec<Banner>, tile: Tile },
             Other,
@@ -171,11 +172,9 @@ impl MapScan {
             }
         }
 
-        let data_path = world_path.join("data");
-
         ids.into_par_iter()
             .map(move |&id| -> Result<Self> {
-                let path = data_path.join(format!("map_{id}.dat"));
+                let path = world.map_path(id);
                 let mut results = Self::default();
 
                 if let Meta::Normal { banners, tile } = from_bytes(&read_gz(&path)?)

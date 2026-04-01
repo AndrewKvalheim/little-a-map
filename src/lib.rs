@@ -2,12 +2,13 @@
 
 mod banner;
 mod cache;
-pub mod level;
+mod level;
 mod map;
 pub mod palette;
 mod search;
 mod tile;
 mod utilities;
+pub mod world;
 
 use anyhow::Result;
 use askama::Template;
@@ -16,7 +17,6 @@ use cache::Cache;
 use fs_err::{self as fs, File};
 use glob::glob;
 use indicatif::ProgressBar;
-use level::Level;
 use log::debug;
 use map::{Map, MapData, MapScan};
 use rayon::prelude::*;
@@ -29,6 +29,7 @@ use std::path::Path;
 use std::time::{Instant, SystemTime};
 use tile::Tile;
 use utilities::progress_bar;
+use world::World;
 
 pub const COMPATIBLE_VERSIONS: &str = ">=1.20.2, <1.22";
 
@@ -61,7 +62,7 @@ impl AddAssign for Report {
 }
 
 struct Quadrant<'a> {
-    world_path: &'a Path,
+    world: &'a World,
     output_path: &'a Path,
     force: bool,
     bar: &'a ProgressBar,
@@ -78,7 +79,7 @@ impl Quadrant<'_> {
                 .get(tile)
                 .map(|maps| {
                     maps.iter()
-                        .map(|m| Ok((m, MapData::from_world_path(self.world_path, m.id)?)))
+                        .map(|m| Ok((m, self.world.map_path(m.id).as_path().try_into()?)))
                         .collect::<Result<_>>()
                 })
                 .transpose()?,
@@ -126,7 +127,7 @@ impl Quadrant<'_> {
 }
 
 pub fn search(
-    world_path: &Path,
+    world: &World,
     output_path: &Path,
     quiet: bool,
     force: bool,
@@ -140,9 +141,9 @@ pub fn search(
     } else {
         Cache::from_path(&cache_path)?
     };
-    let players_searched = search_players(world_path, quiet, &mut cache)?;
-    let entity_regions_searched = search_entities(world_path, quiet, bounds, &mut cache)?;
-    let block_regions_searched = search_level(world_path, quiet, bounds, &mut cache)?;
+    let players_searched = search_players(world, quiet, &mut cache)?;
+    let entity_regions_searched = search_entities(world, quiet, bounds, &mut cache)?;
+    let block_regions_searched = search_level(world, quiet, bounds, &mut cache)?;
     cache.write_to(&cache_path)?;
 
     let ids = cache
@@ -165,16 +166,15 @@ pub fn search(
 }
 
 pub fn render(
-    world_path: &Path,
+    world: &World,
     output_path: &Path,
     quiet: bool,
     force: bool,
-    level: &Level,
     ids: &HashSet<u32>,
 ) -> Result<()> {
     let start_time = Instant::now();
 
-    let results = MapScan::run(world_path, ids)?;
+    let results = MapScan::run(world, ids)?;
 
     let length = results.root_tiles.len() * 4_usize.pow(4);
     let bar = progress_bar(quiet, "Render", length, "tiles");
@@ -184,7 +184,7 @@ pub fn render(
         .par_iter()
         .map(|tile| {
             Quadrant {
-                world_path,
+                world,
                 output_path,
                 force,
                 bar: &bar,
@@ -292,7 +292,7 @@ pub fn render(
             "{:x}",
             modified.duration_since(SystemTime::UNIX_EPOCH)?.as_secs()
         ),
-        center: [level.spawn_z, level.spawn_x],
+        center: [world.level.spawn_z, world.level.spawn_x],
         generator: &format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
         maps_stacked: report.maps_stacked,
     };
