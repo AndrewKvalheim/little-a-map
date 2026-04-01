@@ -1,10 +1,10 @@
-use semver::VersionReq;
 use glob::glob;
 use image::{GenericImageView, Pixel};
 use itertools::{assert_equal, Itertools};
 use little_a_map::{level::Level, palette, render, search};
 use rstest::*;
 use rstest_reuse::{self, *};
+use semver::VersionReq;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
