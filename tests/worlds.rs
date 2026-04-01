@@ -6,7 +6,9 @@ use rstest::*;
 use rstest_reuse::{self, *};
 use semver::VersionReq;
 use serde::Deserialize;
+use serial_test::serial;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fs::{self, File};
 use std::path::Path;
 use std::str::FromStr;
@@ -68,7 +70,10 @@ struct Case {
 
 impl Case {
     fn render(&self, ids: &HashSet<u32>) -> &Path {
-        let output = self.tmp.path();
+        self.render_to(ids, self.tmp.path())
+    }
+
+    fn render_to<'o>(&self, ids: &HashSet<u32>, output: &'o Path) -> &'o Path {
         render(&self.world, output, true, true, ids).unwrap();
         output
     }
@@ -238,4 +243,16 @@ fn rerun(case: Case) {
         &modifications_1,
         &modifications_2,
     );
+}
+
+#[apply(latest)]
+#[serial]
+fn output_path_relative(case: Case, #[values("a", "./a", "././a", "a/b/..")] path: &str) {
+    let cwd = env::current_dir().unwrap();
+    env::set_current_dir(&case.tmp).unwrap();
+
+    case.render_to(&case.search(), Path::new(path));
+    assert!(fs::exists(case.tmp.path().join("a/index.html")).unwrap());
+
+    env::set_current_dir(cwd).unwrap();
 }

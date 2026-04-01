@@ -54,6 +54,7 @@ criterion = "0.8"
 image = "0.25"
 rstest = "0.26"
 rstest_reuse = "0.7"
+serial_test = "3.4"
 tempfile = "3.3"
 
 [[bench]]
