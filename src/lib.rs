@@ -218,11 +218,11 @@ pub fn render(
     let tiles_pruned = glob(output_path.join("tiles/*/*/*.webp").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
-            let relative = path.strip_prefix(output_path)?;
-            let mut parts = relative.to_str().unwrap().split('/').skip(1);
-            let zoom: u8 = parts.next().unwrap().parse()?;
-            let x: i32 = parts.next().unwrap().parse()?;
-            let y: i32 = parts.next().unwrap().split('.').next().unwrap().parse()?;
+
+            let mut parts = path.iter().rev().map(|p| p.to_str().unwrap());
+            let y = parts.next().unwrap().split('.').next().unwrap().parse()?;
+            let x = parts.next().unwrap().parse()?;
+            let zoom = parts.next().unwrap().parse()?;
 
             Ok(if report.tiles.contains(&(zoom, x, y)) {
                 0
