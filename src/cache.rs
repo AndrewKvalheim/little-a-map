@@ -41,7 +41,7 @@ impl Cache {
 
     pub fn is_expired_for(&self, path: &Path) -> Result<bool> {
         let modified = fs::metadata(path)?.modified()?;
-        Ok(self.modified.map_or(true, |m| m < modified))
+        Ok(self.modified.is_none_or(|m| m < modified))
     }
 
     pub fn write_to(&self, path: &Path) -> Result<()> {

@@ -217,12 +217,12 @@ impl MapScan {
             })
             .try_reduce(Self::default, |mut results, other| {
                 if let Some(b) = other.banners_modified {
-                    if results.banners_modified.map_or(true, |a| a < b) {
+                    if results.banners_modified.is_none_or(|a| a < b) {
                         results.banners_modified.replace(b);
                     }
                 }
                 if let Some(b) = other.maps_modified {
-                    if results.maps_modified.map_or(true, |a| a < b) {
+                    if results.maps_modified.is_none_or(|a| a < b) {
                         results.maps_modified.replace(b);
                     }
                 }
