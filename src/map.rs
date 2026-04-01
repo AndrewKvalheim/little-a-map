@@ -7,6 +7,7 @@ use crate::utilities::{read_gz, write_webp};
 use anyhow::{Context, Result};
 use derivative::Derivative;
 use fastnbt::from_bytes;
+use fs_err::{self as fs, File};
 use itertools::Itertools;
 use log::{debug, log_enabled, Level::Debug};
 use rayon::prelude::*;
@@ -14,7 +15,6 @@ use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, File};
 use std::path::Path;
 use std::time::SystemTime;
 

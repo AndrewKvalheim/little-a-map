@@ -1,10 +1,10 @@
 use crate::palette::PALETTE;
 use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
+use fs_err::File;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::array;
 use std::borrow::Cow;
-use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 

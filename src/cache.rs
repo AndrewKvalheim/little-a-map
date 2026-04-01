@@ -1,9 +1,9 @@
 use anyhow::Result;
+use fs_err::{self as fs, File};
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, File};
 use std::io::ErrorKind::NotFound;
 use std::path::Path;
 use std::time::SystemTime;

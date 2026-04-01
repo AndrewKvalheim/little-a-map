@@ -1,8 +1,8 @@
 use crate::map::{Map, MapData};
 use crate::utilities::write_webp;
 use anyhow::Result;
+use fs_err::{self as fs, File};
 use serde_json::json;
-use std::fs::{self, File};
 use std::ops::Add;
 use std::path::Path;
 use std::time::SystemTime;
