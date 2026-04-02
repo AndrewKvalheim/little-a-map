@@ -1,5 +1,6 @@
 use anyhow::Result;
 use fs_err::{self as fs, File};
+use log::debug;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -28,9 +29,12 @@ impl Cache {
     pub fn from_path(path: &Path) -> Result<Self> {
         match File::open(path) {
             Ok(f) => {
-                let mut cache =
-                    bincode::deserialize_from::<_, Self>(ZstdDecoder::new(f)?).unwrap_or_default();
-                cache.modified = Some(fs::metadata(path)?.modified()?);
+                let cache = bincode::deserialize_from::<_, Self>(ZstdDecoder::new(f)?)
+                    .and_then(|mut c| {
+                        c.modified = Some(fs::metadata(path)?.modified()?);
+                        Ok(c)
+                    })
+                    .unwrap_or_default();
 
                 Ok(cache)
             }
@@ -77,6 +81,7 @@ fn validate_version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String
             if value == env!("CARGO_PKG_VERSION") {
                 Ok(value.to_owned())
             } else {
+                debug!("Invalidating cache from version {value}");
                 Err(E::invalid_value(Unexpected::Str(value), &self))
             }
         }
