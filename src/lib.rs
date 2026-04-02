@@ -10,6 +10,7 @@ mod tile;
 mod utilities;
 pub mod world;
 
+use crate::utilities::remove_file_if_exists;
 use anyhow::Result;
 use askama::Template;
 use banner::Banner;
@@ -215,7 +216,7 @@ pub fn render(
         })
         .sum::<Result<usize>>()?;
 
-    let tiles_pruned = glob(output_path.join("tiles/*/*/*.webp").to_str().unwrap())?
+    let tiles_pruned = glob(output_path.join("tiles/*/*/*.meta.json").to_str().unwrap())?
         .map(|entry| -> Result<usize> {
             let path = entry?;
 
@@ -229,8 +230,8 @@ pub fn render(
             } else {
                 let base = output_path.join(format!("tiles/{zoom}/{x}/{y}"));
                 debug!("Prune: {}", base.display());
-                fs::remove_file(base.with_extension("webp"))?;
                 fs::remove_file(base.with_extension("meta.json"))?;
+                remove_file_if_exists(base.with_extension("webp"))?;
                 1
             })
         })

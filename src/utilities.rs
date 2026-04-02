@@ -1,11 +1,11 @@
 use crate::palette::PALETTE;
 use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
-use fs_err::File;
+use fs_err::{self as fs, File};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::array;
 use std::borrow::Cow;
-use std::io::{Read, Write};
+use std::io::{self, ErrorKind::NotFound, Read, Write};
 use std::path::Path;
 
 pub fn progress_bar(
@@ -39,6 +39,10 @@ pub fn read_gz(path: &Path) -> Result<Vec<u8>> {
     decoder.read_to_end(&mut data)?;
 
     Ok(data)
+}
+
+pub fn remove_file_if_exists(path: impl AsRef<Path>) -> io::Result<()> {
+    fs::remove_file(path).or_else(|e| if e.kind() == NotFound { Ok(()) } else { Err(e) })
 }
 
 pub fn write_webp(w: &mut impl Write, indexed: &[u8; 128 * 128]) -> Result<()> {
